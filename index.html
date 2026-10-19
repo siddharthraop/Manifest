@@ -1,0 +1,963 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="description" content="MANIFEST: an agent that migrates DITA maps to MyST Markdown and checks every topic for lost content.">
+<title>MANIFEST Design Document</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=IBM+Plex+Mono:wght@400;500&family=Inter:wght@400;500&display=swap" rel="stylesheet"/>
+<style>
+/* Layout: AlignR design-doc system. Light theme only (matches the AlignR page). Sidebar, sticky breadcrumb bar, 820px reading column. */
+:root {
+  --bg:#fafaf8; --bg2:#f2f0eb; --bg3:#e8e5de; --card:#ffffff;
+  --text:#1a1917; --text2:#5a5852; --text3:#8a8880;
+  --border:#d8d5ce; --border2:#c8c5be;
+  --amber:#b07010; --amber-bg:#fdf4e3; --amber-border:#e8c870;
+  --teal:#0a6b52; --teal-bg:#e8f5f0; --teal-border:#80c8b0;
+  --purple:#4a40b0; --purple-bg:#f0effe; --purple-border:#b0a8e8;
+  --coral:#b03820; --coral-bg:#fdf0ec; --coral-border:#e8a090;
+  --blue:#1850a0; --blue-bg:#eaf2fe; --blue-border:#90b8e8;
+  --term:#16150f;
+  --serif:'DM Serif Display',Georgia,serif;
+  --mono:'IBM Plex Mono',ui-monospace,Menlo,monospace;
+  --sans:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;
+  --r:6px; --r-lg:10px;
+  color-scheme:light;
+}
+* { box-sizing:border-box; margin:0; padding:0; }
+body { font-family:var(--sans); background:var(--bg); color:var(--text); font-size:15px; line-height:1.7; }
+body::before { content:""; position:fixed; inset:0 0 auto; height:env(safe-area-inset-top,0px); z-index:200; background:rgba(250,250,248,0.95); }
+a { color:var(--teal); }
+a:focus-visible, button:focus-visible { outline:2px solid var(--teal); outline-offset:2px; }
+.page-wrap { display:grid; grid-template-columns:220px minmax(0,1fr); min-height:100vh; }
+
+/* SIDEBAR */
+.sidebar { position:sticky; top:0; height:100vh; overflow-y:auto; background:var(--bg2); border-right:1px solid var(--border); padding:2rem 1.25rem; display:flex; flex-direction:column; }
+.sidebar-logo { font-family:var(--mono); font-size:11px; font-weight:500; color:var(--text3); letter-spacing:0.08em; text-transform:uppercase; margin-bottom:0.25rem; }
+.sidebar-project { font-family:var(--serif); font-size:18px; color:var(--text); margin-bottom:2rem; line-height:1.2; }
+.sidebar-nav { list-style:none; display:flex; flex-direction:column; gap:2px; }
+.sidebar-nav a { display:block; font-size:12px; color:var(--text2); text-decoration:none; padding:5px 8px; border-radius:var(--r); transition:background 0.15s,color 0.15s; }
+.sidebar-nav a:hover { background:var(--bg3); color:var(--text); }
+.sidebar-nav a.active { background:var(--text); color:var(--bg); }
+.sidebar-nav .sub { padding-left:20px; font-size:11px; color:var(--text3); }
+.sidebar-divider { height:1px; background:var(--border); margin:1rem 0; }
+.stack-block { margin-top:auto; padding-top:1.5rem; border-top:1px solid var(--border); }
+.stack-title { font-family:var(--mono); font-size:10px; text-transform:uppercase; letter-spacing:0.1em; color:var(--text3); margin-bottom:0.75rem; }
+.stack-item { font-size:11px; color:var(--text2); padding:4px 0; border-bottom:1px solid var(--border); line-height:1.3; }
+.stack-item strong { display:block; color:var(--text); font-weight:500; font-size:11px; }
+
+/* MAIN */
+.main { min-width:0; }
+.topbar { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:0.75rem 2.5rem; border-bottom:1px solid var(--border); position:sticky; top:env(safe-area-inset-top,0px); background:rgba(250,250,248,0.95); backdrop-filter:blur(8px); z-index:100; }
+.topbar-breadcrumb { font-family:var(--mono); font-size:11px; color:var(--text3); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.topbar-right { display:flex; align-items:center; gap:8px; flex-wrap:wrap; justify-content:flex-end; }
+.topbar-tag { font-family:var(--mono); font-size:10px; padding:3px 8px; background:var(--bg3); border-radius:99px; color:var(--text2); white-space:nowrap; }
+.content { padding:3rem 2.5rem 5rem; max-width:820px; }
+
+/* HEADER */
+.doc-header { margin-bottom:3rem; padding-bottom:3rem; border-bottom:1px solid var(--border); }
+.doc-eyebrow { display:flex; align-items:center; gap:12px; font-family:var(--mono); font-size:10.5px; color:var(--text3); text-transform:uppercase; letter-spacing:0.1em; margin-bottom:1.25rem; }
+.doc-eyebrow::after { content:''; flex:1; height:1px; background:var(--border); }
+.doc-title { font-family:var(--serif); font-size:clamp(26px,4vw,40px); font-weight:400; line-height:1.15; letter-spacing:-0.01em; color:var(--text); margin-bottom:0.75rem; text-wrap:balance; }
+.doc-title em { font-style:italic; color:var(--teal); }
+.doc-byline { font-size:13px; color:var(--text3); display:flex; gap:6px 20px; flex-wrap:wrap; margin-bottom:1.5rem; }
+.disclaimer { font-size:12px; color:var(--text3); line-height:1.6; border-left:2px solid var(--border2); padding-left:12px; margin-bottom:2rem; }
+.disclaimer strong { color:var(--text2); font-weight:500; }
+
+.stat-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); border:1px solid var(--border); border-radius:var(--r-lg); overflow:hidden; margin:0 0 2.5rem; }
+.stat-cell { padding:1.25rem 1.5rem; border-right:1px solid var(--border); background:var(--card); }
+.stat-cell:last-child { border-right:none; }
+.stat-value { font-family:var(--serif); font-size:34px; line-height:1; margin-bottom:4px; }
+.stat-value.amber{color:var(--amber)} .stat-value.teal{color:var(--teal)} .stat-value.purple{color:var(--purple)}
+.stat-label { font-family:var(--mono); font-size:10px; color:var(--text3); text-transform:uppercase; letter-spacing:0.08em; line-height:1.4; }
+
+.abstract-grid { display:grid; grid-template-columns:110px minmax(0,1fr); gap:2rem; }
+.abstract-label { font-family:var(--mono); font-size:10.5px; text-transform:uppercase; letter-spacing:0.1em; color:var(--text3); padding-top:4px; }
+.abstract-body { font-size:14.5px; line-height:1.75; color:var(--text2); }
+.abstract-body p + p { margin-top:0.75rem; }
+.abstract-body strong { color:var(--text); font-weight:500; }
+.kw-row { display:flex; flex-wrap:wrap; gap:6px; margin-top:1rem; }
+.kw { font-family:var(--mono); font-size:10px; padding:3px 10px; border:1px solid var(--border2); border-radius:99px; color:var(--text3); }
+
+/* SECTIONS */
+.section { margin-bottom:4rem; scroll-margin-top:80px; }
+.section-heading { font-family:var(--serif); font-size:26px; font-weight:400; color:var(--text); margin-bottom:1.25rem; display:flex; align-items:baseline; gap:12px; }
+.section-num { font-family:var(--mono); font-size:12px; color:var(--text3); }
+.subsection-heading { font-size:13px; font-weight:500; color:var(--text); margin:2rem 0 0.75rem; text-transform:uppercase; letter-spacing:0.05em; display:flex; align-items:center; gap:8px; scroll-margin-top:80px; }
+.subsection-heading::before { content:''; display:block; width:20px; height:1px; background:var(--border2); }
+.body-text { font-size:14.5px; line-height:1.75; color:var(--text2); margin-bottom:1rem; }
+.body-text strong { color:var(--text); font-weight:500; }
+code { font-family:var(--mono); font-size:12px; background:var(--bg3); padding:1px 5px; border-radius:3px; color:var(--text); }
+sup.ref a { font-family:var(--mono); font-size:9.5px; text-decoration:none; padding-left:1px; }
+
+.callout { border-left:2px solid var(--border2); padding:1rem 1.25rem; margin:1.5rem 0; background:var(--bg2); }
+.callout.amber{border-color:var(--amber-border);background:var(--amber-bg)} .callout.teal{border-color:var(--teal-border);background:var(--teal-bg)}
+.callout.blue{border-color:var(--blue-border);background:var(--blue-bg)}
+.callout-label { font-family:var(--mono); font-size:10px; text-transform:uppercase; letter-spacing:0.1em; color:var(--text3); margin-bottom:4px; }
+.callout.amber .callout-label{color:var(--amber)} .callout.teal .callout-label{color:var(--teal)} .callout.blue .callout-label{color:var(--blue)}
+.callout-body { font-size:13.5px; line-height:1.65; color:var(--text2); }
+.callout-body strong { color:var(--text); font-weight:500; }
+.callout.statement .callout-body { font-size:15px; line-height:1.7; color:var(--text); }
+
+.figure { margin:2rem 0; }
+.figure-label { font-family:var(--mono); font-size:10px; text-transform:uppercase; letter-spacing:0.1em; color:var(--text3); margin-bottom:0.5rem; display:flex; align-items:center; gap:8px; }
+.figure-label::after { content:''; flex:1; height:1px; background:var(--border); }
+.figure-sublabel { font-size:12px; color:var(--text3); font-style:italic; margin-bottom:0.75rem; }
+.figure-body { border:1px solid var(--border); border-radius:var(--r-lg); background:var(--card); padding:1.5rem; overflow-x:auto; }
+.figure-body svg { display:block; width:100%; min-width:620px; height:auto; }
+.figure-note { font-size:12px; color:var(--text3); margin-top:0.5rem; font-style:italic; }
+
+.table-wrap { overflow-x:auto; margin:1.5rem 0; }
+.comp-table { width:100%; border-collapse:collapse; font-size:13px; }
+.comp-table th { font-family:var(--mono); font-size:10px; text-transform:uppercase; letter-spacing:0.08em; color:var(--text3); padding:8px 12px; border-bottom:1px solid var(--border); text-align:left; background:var(--bg2); }
+.comp-table td { padding:10px 12px; border-bottom:1px solid var(--border); color:var(--text2); vertical-align:top; font-variant-numeric:tabular-nums; }
+.comp-table td:first-child { font-weight:500; color:var(--text); }
+.comp-table tr:last-child td { border-bottom:none; }
+.comp-table .highlight td { background:var(--teal-bg); }
+.figure-body .comp-table { margin:0; }
+.badge { font-family:var(--mono); font-size:10px; padding:2px 7px; border-radius:99px; white-space:nowrap; }
+.badge.amber{background:var(--amber-bg);color:var(--amber);border:1px solid var(--amber-border)}
+.badge.teal{background:var(--teal-bg);color:var(--teal);border:1px solid var(--teal-border)}
+.badge.gray{background:var(--bg3);color:var(--text3);border:1px solid var(--border)}
+.badge.red{background:var(--coral-bg);color:var(--coral);border:1px solid var(--coral-border)}
+.badge.purple{background:var(--purple-bg);color:var(--purple);border:1px solid var(--purple-border)}
+
+/* PEOPLE */
+.card-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; margin:1.5rem 0; }
+.p-card { border:1px solid var(--border); border-radius:var(--r-lg); background:var(--card); padding:1.25rem; display:flex; flex-direction:column; gap:6px; }
+.p-card.wide { grid-column:1 / -1; }
+.p-card-head { display:flex; justify-content:space-between; align-items:baseline; gap:10px; margin-bottom:2px; }
+.p-card-name { font-family:var(--serif); font-size:17px; color:var(--text); line-height:1.25; }
+.p-card-field { font-size:12.5px; line-height:1.55; color:var(--text2); }
+.p-card-field strong { display:block; font-family:var(--mono); font-size:9.5px; text-transform:uppercase; letter-spacing:0.07em; color:var(--text3); font-weight:500; }
+
+.us-card { border-left:2px solid var(--teal-border); background:var(--teal-bg); border-radius:0 var(--r) var(--r) 0; padding:0.9rem 1.1rem; margin-bottom:0.75rem; }
+.us-card.reader { border-left-color:var(--blue-border); background:var(--blue-bg); }
+.us-id { font-family:var(--mono); font-size:10px; color:var(--teal); text-transform:uppercase; letter-spacing:0.06em; margin-bottom:4px; }
+.us-card.reader .us-id { color:var(--blue); }
+.us-story { font-size:13.5px; color:var(--text); line-height:1.6; margin-bottom:6px; }
+.us-ac { font-size:12px; color:var(--text2); line-height:1.6; }
+
+/* TOOL CARDS */
+.tool-list { display:flex; flex-direction:column; gap:10px; margin:1.5rem 0; }
+.tool { display:grid; grid-template-columns:40px minmax(0,1fr); gap:14px; border:1px solid var(--border); border-radius:var(--r-lg); background:var(--card); padding:1rem 1.25rem; }
+.tool-badge { width:40px; height:40px; border-radius:var(--r); display:grid; place-items:center; background:var(--teal-bg); color:var(--teal); border:1px solid var(--teal-border); }
+.tool-badge.agent { background:var(--purple-bg); color:var(--purple); border-color:var(--purple-border); }
+.tool-badge.check { background:var(--amber-bg); color:var(--amber); border-color:var(--amber-border); }
+.tool-badge svg { width:19px; height:19px; stroke:currentColor; fill:none; stroke-width:1.7; stroke-linecap:round; stroke-linejoin:round; }
+.tool h4 { font-size:13.5px; font-weight:500; color:var(--text); margin-bottom:3px; display:flex; flex-wrap:wrap; align-items:center; gap:8px; }
+.tool h4 code { font-size:11.5px; }
+.tool p { font-size:13px; line-height:1.6; color:var(--text2); }
+.tool .meta { font-family:var(--mono); font-size:10.5px; color:var(--text3); margin-top:5px; }
+
+/* SIMULATOR (AlignR pattern) */
+.sim-wrap { border:1px solid var(--border); border-radius:var(--r-lg); background:var(--card); overflow:hidden; margin:2rem 0; }
+.sim-header { display:flex; align-items:center; justify-content:space-between; gap:10px; padding:0.875rem 1.25rem; background:var(--bg2); border-bottom:1px solid var(--border); }
+.sim-title { font-family:var(--mono); font-size:11px; color:var(--text2); letter-spacing:0.05em; }
+.sim-status { font-family:var(--mono); font-size:10px; color:var(--text3); }
+.sim-status.running{color:var(--amber)} .sim-status.done{color:var(--teal)} .sim-status.review{color:var(--coral)}
+.sim-body { display:grid; grid-template-columns:250px minmax(0,1fr); }
+.sim-controls { border-right:1px solid var(--border); padding:1rem; }
+.sim-controls-label { font-family:var(--mono); font-size:10px; text-transform:uppercase; letter-spacing:0.1em; color:var(--text3); margin-bottom:0.5rem; }
+.scenario-btn { display:block; width:100%; text-align:left; padding:8px 10px; border:none; background:none; cursor:pointer; border-radius:var(--r); font-size:12px; color:var(--text2); margin-bottom:2px; font-family:var(--sans); }
+.scenario-btn:hover { background:var(--bg2); }
+.scenario-btn.active { background:var(--text); color:var(--bg); }
+.scenario-desc { font-size:12px; line-height:1.6; color:var(--text3); padding:0.75rem 0; border-top:1px solid var(--border); margin-top:0.75rem; }
+.scenario-desc strong { color:var(--text2); font-weight:500; }
+.run-btn { width:100%; margin-top:0.75rem; padding:8px; background:var(--text); color:var(--bg); border:none; border-radius:var(--r); font-family:var(--mono); font-size:11px; cursor:pointer; letter-spacing:0.05em; }
+.run-btn:hover { opacity:0.85; } .run-btn:disabled { opacity:0.4; cursor:not-allowed; }
+.sim-stages { padding:1rem; min-width:0; }
+.stage-row { display:grid; grid-template-columns:minmax(0,190px) minmax(0,1fr) 70px; align-items:center; gap:12px; padding:8px 0; border-bottom:1px solid var(--border); font-size:12px; }
+.stage-row:last-child { border-bottom:none; }
+.stage-name { display:flex; align-items:center; gap:8px; min-width:0; }
+.stage-dot { width:7px; height:7px; border-radius:50%; background:var(--bg3); flex-shrink:0; transition:background 0.3s; }
+.stage-dot.running { background:var(--amber); animation:pulse 1s infinite; }
+.stage-dot.done { background:var(--teal); } .stage-dot.skip { background:var(--border2); } .stage-dot.review { background:var(--coral); }
+.stage-name-text { font-weight:500; color:var(--text); font-size:12px; font-family:var(--mono); }
+.stage-sub { font-size:10.5px; color:var(--text3); }
+.stage-bar-wrap { background:var(--bg2); border-radius:99px; height:4px; overflow:hidden; }
+.stage-bar { height:4px; border-radius:99px; background:var(--teal); width:0; transition:width 0.6s ease; }
+.stage-bar.review { background:var(--coral); } .stage-bar.skip { background:var(--border2); }
+.stage-timing { font-family:var(--mono); font-size:10px; color:var(--text3); text-align:right; }
+.stage-timing.done { color:var(--teal); }
+.sim-output { margin:0; padding:1rem; background:var(--term); border-top:1px solid var(--border); font-family:var(--mono); font-size:11.5px; line-height:1.7; color:#8a8870; min-height:160px; max-height:260px; overflow-y:auto; white-space:pre-wrap; }
+.sim-output .out-line { display:block; }
+.out-comment{color:#6a6a52} .out-key{color:#a09060} .out-val{color:#78b890} .out-warn{color:#c08840} .out-head{color:#d0c090} .out-fail{color:#e08a70}
+.sim-note { font-family:var(--mono); font-size:10px; color:var(--text3); padding:0.6rem 1.25rem; border-top:1px solid var(--border); background:var(--bg2); }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+
+/* REPORT MOCK */
+.report { border:1px solid var(--border); border-radius:var(--r-lg); overflow:hidden; background:var(--card); }
+.report-head { display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap; padding:0.75rem 1.25rem; background:var(--bg2); border-bottom:1px solid var(--border); font-family:var(--mono); font-size:11px; color:var(--text2); }
+.report-sum { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); border-bottom:1px solid var(--border); }
+.report-sum div { padding:0.9rem 1.25rem; border-right:1px solid var(--border); }
+.report-sum div:last-child { border-right:none; }
+.report-sum b { display:block; font-family:var(--serif); font-weight:400; font-size:26px; line-height:1.1; }
+.report-sum span { font-family:var(--mono); font-size:10px; text-transform:uppercase; letter-spacing:0.08em; color:var(--text3); }
+
+.sources { list-style:none; counter-reset:src; display:flex; flex-direction:column; gap:6px; }
+.sources li { display:grid; grid-template-columns:30px minmax(0,1fr); font-size:12.5px; color:var(--text2); line-height:1.5; scroll-margin-top:80px; }
+.sources li::before { counter-increment:src; content:"[" counter(src) "]"; font-family:var(--mono); font-size:11px; color:var(--text3); }
+.sources a { word-break:break-word; }
+
+.doc-footer { padding:2rem 2.5rem; border-top:1px solid var(--border); font-family:var(--mono); font-size:11px; color:var(--text3); display:flex; justify-content:space-between; gap:12px; flex-wrap:wrap; }
+
+@media (max-width:900px) {
+  .page-wrap { grid-template-columns:minmax(0,1fr); }
+  .sidebar { display:none; }
+  .topbar { padding-left:max(16px,env(safe-area-inset-left,0px)); padding-right:max(16px,env(safe-area-inset-right,0px)); }
+  .topbar-right { display:none; }
+  .content { padding-block:2rem 4rem; padding-left:max(16px,env(safe-area-inset-left,0px)); padding-right:max(16px,env(safe-area-inset-right,0px)); }
+  .doc-footer { padding-left:max(16px,env(safe-area-inset-left,0px)); padding-right:max(16px,env(safe-area-inset-right,0px)); }
+  .stat-grid { grid-template-columns:minmax(0,1fr); }
+  .stat-cell { border-right:none; border-bottom:1px solid var(--border); }
+  .stat-cell:last-child { border-bottom:none; }
+  .abstract-grid { grid-template-columns:minmax(0,1fr); gap:0.5rem; }
+  .card-grid { grid-template-columns:minmax(0,1fr); }
+  .sim-body { grid-template-columns:minmax(0,1fr); }
+  .sim-controls { border-right:none; border-bottom:1px solid var(--border); }
+  .stage-row { grid-template-columns:minmax(0,1fr) 60px 52px; }
+  .report-sum { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .report-sum div:nth-child(2) { border-right:none; }
+  .report-sum div:nth-child(-n+2) { border-bottom:1px solid var(--border); }
+}
+@media (prefers-reduced-motion: reduce) { .stage-dot.running { animation:none; } .stage-bar { transition:none; } }
+</style>
+</head>
+<body>
+<div class="page-wrap">
+
+<aside class="sidebar">
+  <div class="sidebar-logo">manifest / design doc</div>
+  <div class="sidebar-project">MANIFEST</div>
+  <nav aria-label="Sections">
+    <ul class="sidebar-nav">
+      <li><a href="#abstract">Abstract</a></li>
+      <li><a href="#brief">Client Brief</a></li>
+      <li><a href="#problem">Problem</a></li>
+      <li><a href="#users">Users</a></li>
+      <li><a href="#stories">User Stories</a></li>
+      <li><a href="#design">Design</a></li>
+      <li><a href="#simulator">Simulator</a></li>
+      <li><a href="#metrics">Success Metrics</a></li>
+      <li><a href="#sources">Sources</a></li>
+    </ul>
+    <div class="sidebar-divider"></div>
+    <ul class="sidebar-nav">
+      <li><a href="#what-is-lost" class="sub">2.1 What conversion removes</a></li>
+      <li><a href="#options" class="sub">2.2 Current options</a></li>
+      <li><a href="#how-it-works" class="sub">5.1 How it works</a></li>
+      <li><a href="#tools" class="sub">5.2 Agent tools</a></li>
+      <li><a href="#loop" class="sub">5.3 Agent loop</a></li>
+      <li><a href="#mapping" class="sub">5.4 Reuse mapping</a></li>
+      <li><a href="#target" class="sub">5.5 Target format</a></li>
+      <li><a href="#runtime" class="sub">5.6 Where it runs</a></li>
+    </ul>
+  </nav>
+  <div class="stack-block">
+    <div class="stack-title">Stack</div>
+    <div class="stack-item"><strong>Gemini 3.8 Flash</strong>agent model</div>
+    <div class="stack-item"><strong>Agent Development Kit</strong>agent framework</div>
+    <div class="stack-item"><strong>DITA-OT 4.4</strong>conversion</div>
+    <div class="stack-item"><strong>Python · lxml</strong>inventory and checks</div>
+    <div class="stack-item"><strong>Sphinx · MyST</strong>target docs site</div>
+    <div class="stack-item"><strong>lychee</strong>link checks</div>
+    <div class="stack-item"><strong>Cloud Run · GitHub Actions</strong>runtime</div>
+  </div>
+</aside>
+
+<main class="main">
+  <div class="topbar">
+    <div class="topbar-breadcrumb">manifest / design-doc · v0.1 · 2026</div>
+    <div class="topbar-right">
+      <span class="topbar-tag">Docs as code</span>
+      <span class="topbar-tag">DITA migration</span>
+      <span class="topbar-tag">MVP</span>
+    </div>
+  </div>
+
+  <div class="content">
+
+    <header class="doc-header" id="abstract">
+      <div class="doc-eyebrow">MANIFEST v0.1 &nbsp;·&nbsp; DITA to docs-as-code migration &nbsp;·&nbsp; 2026</div>
+      <h1 class="doc-title">MANIFEST: <em>Migrate DITA to Markdown</em><br>without losing content</h1>
+      <div class="doc-byline">
+        <span>Design document &nbsp;·&nbsp; Siddharth Rao &nbsp;·&nbsp; October 2026</span>
+        <span>Client: Google data center products and services documentation</span>
+      </div>
+      <p class="disclaimer"><strong>Disclaimer.</strong> This is a portfolio design document. Google has not engaged, sponsored or endorsed this work. The sample content is adapted from the Google Cloud TPU documentation, which Google publishes under the Creative Commons Attribution 4.0 licence<sup class="ref"><a href="#src-5">5</a></sup>. The adapted version is modified from the original. Stakeholders are job roles, not real people. The two readers in §3 are fictional.</p>
+
+      <div class="stat-grid">
+        <div class="stat-cell"><div class="stat-value teal">3</div><div class="stat-label">Markdown output formats<br>DITA-OT already supports</div></div>
+        <div class="stat-cell"><div class="stat-value amber">5</div><div class="stat-label">checks every topic<br>must pass before merge</div></div>
+        <div class="stat-cell"><div class="stat-value purple">0</div><div class="stat-label">unreported content losses<br>allowed per topic</div></div>
+      </div>
+
+      <div class="abstract-grid">
+        <div class="abstract-label">Abstract</div>
+        <div class="abstract-body">
+          <p>Google's data center products and services documentation is written in DITA XML. DITA lets writers reuse content. A writer writes a warning or a spec value once and references it from many topics. The team now wants to move to docs as code: Markdown files in Git, reviewed in pull requests and built by CI (continuous integration).</p>
+          <p>Converting DITA to Markdown is easy. DITA Open Toolkit (DITA-OT), the free publishing engine the team already uses, does it with one command<sup class="ref"><a href="#src-1">1</a></sup>. The hard part is what the conversion removes without a warning. It copies shared content into every topic, writes key values as plain text and drops element IDs. No team can read thousands of converted pages by hand, so these losses reach readers.</p>
+          <p><strong>MANIFEST</strong> is a migration agent. It converts one DITA map at a time and proves that the converted topics are complete. Gemini runs the migration and fixes problems. Fixed Python checks decide whether each topic passes. Topics that pass go into a pull request for a writer to approve. Topics that fail go to a writer with the reason.</p>
+          <div class="kw-row">
+            <span class="kw">DITA</span><span class="kw">DITA-OT</span><span class="kw">docs as code</span><span class="kw">MyST Markdown</span><span class="kw">Sphinx</span><span class="kw">content reuse</span><span class="kw">Gemini</span><span class="kw">Agent Development Kit</span><span class="kw">Cloud Run</span><span class="kw">human review</span>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <!-- §1 CLIENT BRIEF -->
+    <section class="section" id="brief">
+      <h2 class="section-heading"><span class="section-num">§1</span> Client Brief</h2>
+      <p class="body-text">Google publishes documentation for its data center products and services, including Cloud TPU (Tensor Processing Unit) accelerators. This MVP uses a small part of the Cloud TPU documentation as its sample: the pages for four TPU generations (v5e, v5p, v6e and TPU7x), rewritten as DITA topics.</p>
+      <p class="body-text">These pages are a good test because they repeat a lot of content. Each generation has the same spec table with different values. The same values appear in tables and in text. Different readers need different parts of the page. In DITA, writers handle this with three features:</p>
+      <div class="table-wrap">
+      <table class="comp-table">
+        <thead><tr><th>DITA feature</th><th>What it does</th><th>Example in the TPU pages</th></tr></thead>
+        <tbody>
+          <tr><td>Content reference (conref)</td><td>Reuses an element, such as a note or a table row, from another topic.</td><td>One note about slice shapes, used in every generation's topic.</td></tr>
+          <tr><td>Key</td><td>Stores a value once in the map. Topics refer to the key, not the value.</td><td><code>tpu7x-chips-per-pod</code> = 9,216<sup class="ref"><a href="#src-4">4</a></sup></td></tr>
+          <tr><td>Conditional content</td><td>Marks content for an audience. A DITAVAL file includes or excludes it at build time.</td><td>Capacity-planning notes shown only to operators.</td></tr>
+        </tbody>
+      </table>
+      </div>
+
+      <div class="figure" id="fig1">
+        <div class="figure-label">Figure 1</div>
+        <div class="figure-sublabel">System context: as-is state</div>
+        <div class="figure-body">
+          <svg viewBox="0 0 720 300" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="As-is system context. Writers author DITA, DITA-OT publishes the reference site. Engineers write Markdown for a separate site. No link exists between the two.">
+            <defs><marker id="arr" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M2 1L8 5L2 9" fill="none" stroke="#8a8880" stroke-width="1.5" stroke-linecap="round"/></marker></defs>
+            <text x="20" y="20" font-family="IBM Plex Mono,monospace" font-size="9" fill="#8a8880">DITA PUBLISHING</text>
+            <text x="400" y="20" font-family="IBM Plex Mono,monospace" font-size="9" fill="#8a8880">DOCS AS CODE</text>
+            <rect x="20" y="34" width="150" height="58" rx="6" fill="white" stroke="#d8d5ce" stroke-width="0.75"/>
+            <text x="95" y="59" text-anchor="middle" font-family="Inter,sans-serif" font-size="11" font-weight="500" fill="#1a1917">Technical writers</text>
+            <text x="95" y="75" text-anchor="middle" font-family="Inter,sans-serif" font-size="9" fill="#5a5852">XML editor</text>
+            <rect x="20" y="130" width="150" height="58" rx="6" fill="#eaf2fe" stroke="#90b8e8" stroke-width="0.75"/>
+            <text x="95" y="155" text-anchor="middle" font-family="Inter,sans-serif" font-size="11" font-weight="500" fill="#1850a0">DITA source</text>
+            <text x="95" y="171" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="8.5" fill="#1850a0">maps · keys · conrefs</text>
+            <line x1="95" y1="92" x2="95" y2="126" stroke="#8a8880" stroke-width="0.75" marker-end="url(#arr)"/>
+            <rect x="200" y="130" width="150" height="58" rx="6" fill="#eaf2fe" stroke="#90b8e8" stroke-width="0.75"/>
+            <text x="275" y="155" text-anchor="middle" font-family="Inter,sans-serif" font-size="11" font-weight="500" fill="#1850a0">DITA-OT</text>
+            <text x="275" y="171" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="8.5" fill="#1850a0">HTML5 · PDF</text>
+            <line x1="170" y1="159" x2="196" y2="159" stroke="#8a8880" stroke-width="0.75" marker-end="url(#arr)"/>
+            <rect x="200" y="226" width="150" height="50" rx="6" fill="white" stroke="#d8d5ce" stroke-width="0.75"/>
+            <text x="275" y="249" text-anchor="middle" font-family="Inter,sans-serif" font-size="11" font-weight="500" fill="#1a1917">Reference docs site</text>
+            <text x="275" y="264" text-anchor="middle" font-family="Inter,sans-serif" font-size="9" fill="#5a5852">readers · support links</text>
+            <line x1="275" y1="188" x2="275" y2="222" stroke="#8a8880" stroke-width="0.75" marker-end="url(#arr)"/>
+
+            <rect x="550" y="34" width="150" height="58" rx="6" fill="white" stroke="#d8d5ce" stroke-width="0.75"/>
+            <text x="625" y="59" text-anchor="middle" font-family="Inter,sans-serif" font-size="11" font-weight="500" fill="#1a1917">Software engineers</text>
+            <text x="625" y="75" text-anchor="middle" font-family="Inter,sans-serif" font-size="9" fill="#5a5852">code editor</text>
+            <rect x="550" y="130" width="150" height="58" rx="6" fill="#e8f5f0" stroke="#80c8b0" stroke-width="0.75"/>
+            <text x="625" y="155" text-anchor="middle" font-family="Inter,sans-serif" font-size="11" font-weight="500" fill="#0a6b52">Markdown in Git</text>
+            <text x="625" y="171" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="8.5" fill="#0a6b52">values typed by hand</text>
+            <line x1="625" y1="92" x2="625" y2="126" stroke="#8a8880" stroke-width="0.75" marker-end="url(#arr)"/>
+            <rect x="550" y="226" width="150" height="50" rx="6" fill="white" stroke="#d8d5ce" stroke-width="0.75"/>
+            <text x="625" y="249" text-anchor="middle" font-family="Inter,sans-serif" font-size="11" font-weight="500" fill="#1a1917">Developer docs site</text>
+            <text x="625" y="264" text-anchor="middle" font-family="Inter,sans-serif" font-size="9" fill="#5a5852">CI build</text>
+            <line x1="625" y1="188" x2="625" y2="222" stroke="#8a8880" stroke-width="0.75" marker-end="url(#arr)"/>
+
+            <line x1="352" y1="159" x2="546" y2="159" stroke="#b03820" stroke-width="0.9" stroke-dasharray="4 3"/>
+            <rect x="388" y="118" width="122" height="26" rx="4" fill="#fdf0ec" stroke="#e8a090" stroke-width="0.75"/>
+            <text x="449" y="135" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="8.5" fill="#b03820">manual copy, no check</text>
+          </svg>
+        </div>
+        <div class="figure-note">The dashed red line is the gap. Content moves from DITA to Markdown by hand, and nothing records what changed.</div>
+      </div>
+    </section>
+
+    <!-- §2 PROBLEM -->
+    <section class="section" id="problem">
+      <h2 class="section-heading"><span class="section-num">§2</span> Problem Statement</h2>
+      <p class="body-text">DITA-OT can publish DITA as Markdown in three formats: standard Markdown, GitHub-Flavored Markdown and GitBook<sup class="ref"><a href="#src-1">1</a></sup>. The current release is 4.4<sup class="ref"><a href="#src-2">2</a></sup>. The team does not need a new converter. It needs to know what the converter changed.</p>
+
+      <div class="subsection-heading" id="what-is-lost">2.1 What conversion removes</div>
+      <p class="body-text">Before DITA-OT writes any output, it processes the source. It replaces each key reference with its value, copies each conref target into place and removes content that the DITAVAL file excludes<sup class="ref"><a href="#src-3">3</a></sup>. The output is correct for one audience, but the reuse is gone. Nothing in the Markdown shows which text was shared or which values came from keys.</p>
+      <p class="body-text">The GitHub format loses more. DITA-OT turns definition lists into bulleted lists and leaves out attribute blocks that hold IDs and class names<sup class="ref"><a href="#src-1">1</a></sup>.</p>
+
+      <div class="figure" id="fig2">
+        <div class="figure-label">Figure 2</div>
+        <div class="figure-sublabel">What happens to each DITA feature in DITA-OT's Markdown output</div>
+        <div class="figure-body" style="padding:0.5rem 0.75rem">
+          <div class="table-wrap" style="margin:0">
+          <table class="comp-table">
+            <thead><tr><th>DITA feature</th><th>In the Markdown output</th><th>Effect after migration</th><th>Status</th></tr></thead>
+            <tbody>
+              <tr><td>Conref</td><td>The shared text is copied into each topic.</td><td>One change becomes many edits.</td><td><span class="badge red">Lost</span></td></tr>
+              <tr><td>Key reference</td><td>The value is written as plain text.</td><td>Copies of a value drift apart.</td><td><span class="badge red">Lost</span></td></tr>
+              <tr><td>Conditional content</td><td>Only one audience's version is kept.</td><td>Other readers lose content.</td><td><span class="badge red">Lost</span></td></tr>
+              <tr><td>Element ID</td><td>Dropped in the GitHub format.</td><td>Cross-references and support links break.</td><td><span class="badge red">Lost</span></td></tr>
+              <tr><td>Definition list</td><td>Becomes a bulleted list in the GitHub format.</td><td>The structure changes.</td><td><span class="badge amber">Changed</span></td></tr>
+              <tr><td>Paragraphs, steps, code, simple tables</td><td>Converted as expected.</td><td>None.</td><td><span class="badge teal">Kept</span></td></tr>
+            </tbody>
+          </table>
+          </div>
+        </div>
+        <div class="figure-note">Sources: DITA-OT Markdown output<sup class="ref"><a href="#src-1">1</a></sup> and pre-processing<sup class="ref"><a href="#src-3">3</a></sup> documentation. The conversion does not report any of these changes.</div>
+      </div>
+
+      <div class="callout blue">
+        <div class="callout-label">Example from a live page</div>
+        <div class="callout-body">The TPU7x page gives HBM capacity as 192 GiB in its comparison table and as 192 GB in the next section. It gives HBM bandwidth as 7,380 GBps in the table and as about 7.37 TB/s in the text<sup class="ref"><a href="#src-4">4</a></sup>. When one value is typed in two places, the copies can drift apart. A key stores the value once.</div>
+      </div>
+
+      <div class="subsection-heading" id="options">2.2 Why the current options fail</div>
+      <div class="table-wrap">
+      <table class="comp-table">
+        <thead><tr><th>Option</th><th>What it does</th><th>What it misses</th><th>Result</th></tr></thead>
+        <tbody>
+          <tr><td>Convert by hand</td><td>Writers copy each topic into Markdown.</td><td>Slow. Reuse is lost. No record of changes.</td><td><span class="badge red">Too slow</span></td></tr>
+          <tr><td>DITA-OT Markdown output</td><td>Converts a whole map with one command.</td><td>Loses reuse, IDs and conditions without a warning.</td><td><span class="badge red">Silent loss</span></td></tr>
+          <tr><td>DITA-OT and spot checks</td><td>Reviewers read a sample of converted pages.</td><td>Pages outside the sample are never checked.</td><td><span class="badge amber">Partial</span></td></tr>
+          <tr class="highlight"><td>MANIFEST</td><td>Converts, restores reuse, checks every topic, then fixes or escalates.</td><td>Cannot map some advanced DITA features. It sends these to a writer (§5.4).</td><td><span class="badge teal">Checked</span></td></tr>
+        </tbody>
+      </table>
+      </div>
+
+      <div class="callout amber statement">
+        <div class="callout-label">Problem statement</div>
+        <div class="callout-body">The Google data center documentation team can convert DITA to Markdown with tools it already has, but it cannot prove that the converted content is complete. The conversion removes reuse, element IDs and conditional content, and it does not report these losses. Checking every page by hand is too slow for thousands of topics. As a result, the team cannot migrate at scale with confidence.</div>
+      </div>
+    </section>
+
+    <!-- §3 USERS -->
+    <section class="section" id="users">
+      <h2 class="section-heading"><span class="section-num">§3</span> User Profiles</h2>
+      <p class="body-text">Five roles at Google run or depend on the migration. Two readers depend on the result.</p>
+
+      <div class="subsection-heading">Stakeholders</div>
+      <div class="card-grid">
+        <div class="p-card"><div class="p-card-head"><span class="p-card-name">Docs Platform Lead</span><span class="badge purple">Sponsor</span></div>
+          <div class="p-card-field"><strong>Goal</strong>Move the documentation to docs as code without lowering quality.</div>
+          <div class="p-card-field"><strong>Measured by</strong>Topics migrated that pass all checks; time from code release to published docs.</div>
+          <div class="p-card-field"><strong>Today</strong>Pilots one map by hand and reads a sample of pages.</div>
+          <div class="p-card-field"><strong>Concern</strong>Approves a migration she cannot fully review.</div>
+          <div class="p-card-field"><strong>Success</strong>One report per map that shows what passed, what failed and why.</div></div>
+
+        <div class="p-card"><div class="p-card-head"><span class="p-card-name">Senior Technical Writer</span><span class="badge teal">Writer</span></div>
+          <div class="p-card-field"><strong>Goal</strong>Keep reuse: change a value once and see it change everywhere.</div>
+          <div class="p-card-field"><strong>Measured by</strong>Edits per change; accuracy errors per release.</div>
+          <div class="p-card-field"><strong>Today</strong>Maintains conrefs and keys in the XML editor.</div>
+          <div class="p-card-field"><strong>Concern</strong>Past migrations turned one source into many copies.</div>
+          <div class="p-card-field"><strong>Success</strong>Reuse arrives in Markdown as reuse, not as copied text.</div></div>
+
+        <div class="p-card"><div class="p-card-head"><span class="p-card-name">Information Architect</span><span class="badge teal">Writer</span></div>
+          <div class="p-card-field"><strong>Goal</strong>Keep the content model (topic types, maps, IDs) after the move.</div>
+          <div class="p-card-field"><strong>Measured by</strong>Structural errors after migration.</div>
+          <div class="p-card-field"><strong>Today</strong>Documents the content model in a wiki.</div>
+          <div class="p-card-field"><strong>Concern</strong>Specialised elements become plain paragraphs without anyone noticing.</div>
+          <div class="p-card-field"><strong>Success</strong>Every element that has no Markdown equivalent is flagged for review.</div></div>
+
+        <div class="p-card"><div class="p-card-head"><span class="p-card-name">Software Engineer</span><span class="badge purple">Contributor</span></div>
+          <div class="p-card-field"><strong>Goal</strong>Update the docs in the same pull request as the code.</div>
+          <div class="p-card-field"><strong>Measured by</strong>Time from merge to published docs.</div>
+          <div class="p-card-field"><strong>Today</strong>Files a ticket for the docs team, or edits the Markdown site and lets it drift.</div>
+          <div class="p-card-field"><strong>Concern</strong>Does not want to learn DITA to fix a typo.</div>
+          <div class="p-card-field"><strong>Success</strong>Plain Markdown, a local preview and a check that names what broke.</div></div>
+
+        <div class="p-card wide"><div class="p-card-head"><span class="p-card-name">Technical Support Engineer</span><span class="badge gray">Support</span></div>
+          <div class="p-card-field"><strong>Goal</strong>Links in past support cases and runbooks still open the right section.</div>
+          <div class="p-card-field"><strong>Measured by</strong>Broken links reported; time to answer a case.</div>
+          <div class="p-card-field"><strong>Today</strong>Keeps a personal list of pages that moved.</div>
+          <div class="p-card-field"><strong>Concern</strong>A customer opens an old link and gets a 404 error.</div>
+          <div class="p-card-field"><strong>Success</strong>Every old link opens the right page or redirects to it.</div></div>
+      </div>
+
+      <div class="subsection-heading">Readers</div>
+      <div class="card-grid">
+        <div class="p-card"><div class="p-card-head"><span class="p-card-name">Priya Natarajan</span><span class="badge gray">ML engineer, Google</span></div>
+          <div class="p-card-field"><strong>Task</strong>Sizes a TPU7x slice for a training run. Reads the spec table, then the topology page.</div>
+          <div class="p-card-field"><strong>Concern</strong>If two pages give different values, she trusts neither.</div>
+          <div class="p-card-field"><strong>Success</strong>The same value on every page, from one source.</div></div>
+        <div class="p-card"><div class="p-card-head"><span class="p-card-name">Tomás Reyes</span><span class="badge gray">Site reliability engineer, Google</span></div>
+          <div class="p-card-field"><strong>Task</strong>Plans network capacity. Bookmarks sections on the topology pages.</div>
+          <div class="p-card-field"><strong>Concern</strong>His bookmarks break, or he sees content written for another audience.</div>
+          <div class="p-card-field"><strong>Success</strong>His bookmarks still work, and he sees only content for operators.</div></div>
+      </div>
+    </section>
+
+    <!-- §4 STORIES -->
+    <section class="section" id="stories">
+      <h2 class="section-heading"><span class="section-num">§4</span> User Stories</h2>
+      <p class="body-text">Each story comes from the Goal and Success fields in §3. The acceptance criteria are what the checks in §5 test.</p>
+
+      <div class="us-card"><div class="us-id">US-01 · Docs Platform Lead</div><div class="us-story">As the Docs Platform Lead, I want one report for each map that lists the topics that passed and failed and why, so that I can approve a migration without reading every page.</div><div class="us-ac"><strong>Accepted when:</strong> every map has a report · every failure links to the topic and the check that failed · no topic is skipped.</div></div>
+      <div class="us-card"><div class="us-id">US-02 · Senior Technical Writer</div><div class="us-story">As a senior technical writer, I want every conref and key to arrive as an include or a substitution, so that I can still change a value in one place.</div><div class="us-ac"><strong>Accepted when:</strong> includes in the output equal conrefs in the source · substitutions equal key references · any difference fails the topic.</div></div>
+      <div class="us-card"><div class="us-id">US-03 · Information Architect</div><div class="us-story">As an information architect, I want elements that have no Markdown equivalent sent to a writer, so that no structure is lost without a decision.</div><div class="us-ac"><strong>Accepted when:</strong> each unmapped element creates a review item · zero elements are downgraded without review.</div></div>
+      <div class="us-card"><div class="us-id">US-04 · Software Engineer</div><div class="us-story">As a software engineer, I want a check on my pull request that tells me if I broke a link, an include or a key, so that I can fix docs without a writer.</div><div class="us-ac"><strong>Accepted when:</strong> the check runs on every pull request · each error gives the file, the line and the fix.</div></div>
+      <div class="us-card"><div class="us-id">US-05 · Technical Support Engineer</div><div class="us-story">As a support engineer, I want every old URL and anchor to open the right page or redirect to it, so that links in past cases keep working.</div><div class="us-ac"><strong>Accepted when:</strong> each element ID is kept as an anchor · a redirect file is created for each map · links that cannot be resolved are listed by name.</div></div>
+      <div class="us-card reader"><div class="us-id">US-06 · Priya (reader)</div><div class="us-story">As an ML engineer, I want a spec value to be the same wherever it appears, so that I can size a slice from any page.</div><div class="us-ac"><strong>Accepted when:</strong> every keyed value comes from one substitution · the output has no typed copies of a keyed value.</div></div>
+      <div class="us-card reader"><div class="us-id">US-07 · Tomás (reader)</div><div class="us-story">As a site reliability engineer, I want to see only operator content and keep my bookmarks, so that the docs stay useful after the move.</div><div class="us-ac"><strong>Accepted when:</strong> the text for each audience matches DITA-OT's output for the same DITAVAL file · old anchors still resolve.</div></div>
+
+      <div class="figure" id="fig3">
+        <div class="figure-label">Figure 3</div>
+        <div class="figure-sublabel">Where each story is tested</div>
+        <div class="figure-body">
+          <svg viewBox="0 0 720 150" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Stories mapped to the five agent tools.">
+            <defs><marker id="arr3" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M2 1L8 5L2 9" fill="none" stroke="#8a8880" stroke-width="1.5" stroke-linecap="round"/></marker></defs>
+            <g font-family="Inter,sans-serif">
+              <rect x="10" y="20" width="126" height="62" rx="6" fill="white" stroke="#d8d5ce" stroke-width="0.75"/>
+              <text x="73" y="42" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="8" fill="#8a8880">01</text>
+              <text x="73" y="58" text-anchor="middle" font-size="11" font-weight="500" fill="#1a1917">Inventory</text>
+              <rect x="152" y="20" width="126" height="62" rx="6" fill="white" stroke="#d8d5ce" stroke-width="0.75"/>
+              <text x="215" y="42" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="8" fill="#8a8880">02</text>
+              <text x="215" y="58" text-anchor="middle" font-size="11" font-weight="500" fill="#1a1917">Convert</text>
+              <rect x="294" y="20" width="126" height="62" rx="6" fill="#e8f5f0" stroke="#80c8b0" stroke-width="0.75"/>
+              <text x="357" y="42" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="8" fill="#0a6b52">03</text>
+              <text x="357" y="58" text-anchor="middle" font-size="11" font-weight="500" fill="#0a6b52">Restore reuse</text>
+              <rect x="436" y="20" width="126" height="62" rx="6" fill="#fdf4e3" stroke="#e8c870" stroke-width="0.75"/>
+              <text x="499" y="42" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="8" fill="#b07010">04</text>
+              <text x="499" y="58" text-anchor="middle" font-size="11" font-weight="500" fill="#b07010">Check topic</text>
+              <rect x="578" y="20" width="126" height="62" rx="6" fill="#fdf4e3" stroke="#e8c870" stroke-width="0.75"/>
+              <text x="641" y="42" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="8" fill="#b07010">05</text>
+              <text x="641" y="58" text-anchor="middle" font-size="11" font-weight="500" fill="#b07010">Check links</text>
+              <line x1="136" y1="51" x2="148" y2="51" stroke="#8a8880" stroke-width="0.75" marker-end="url(#arr3)"/>
+              <line x1="278" y1="51" x2="290" y2="51" stroke="#8a8880" stroke-width="0.75" marker-end="url(#arr3)"/>
+              <line x1="420" y1="51" x2="432" y2="51" stroke="#8a8880" stroke-width="0.75" marker-end="url(#arr3)"/>
+              <line x1="562" y1="51" x2="574" y2="51" stroke="#8a8880" stroke-width="0.75" marker-end="url(#arr3)"/>
+              <text x="73" y="108" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="9" fill="#5a5852">US-01 · US-03</text>
+              <text x="215" y="108" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="9" fill="#8a8880">no story</text>
+              <text x="357" y="108" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="9" fill="#0a6b52">US-02 · US-06</text>
+              <text x="499" y="108" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="9" fill="#b07010">US-02 · US-03 · US-07</text>
+              <text x="641" y="108" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="9" fill="#b07010">US-04 · US-05</text>
+              <text x="10" y="138" font-size="10" fill="#8a8880">US-01 is also met by the report the agent writes at the end of each map.</text>
+            </g>
+          </svg>
+        </div>
+        <div class="figure-note">No story depends on the converter. DITA-OT already does that part well.</div>
+      </div>
+    </section>
+
+    <!-- §5 DESIGN -->
+    <section class="section" id="design">
+      <h2 class="section-heading"><span class="section-num">§5</span> Proposed Design</h2>
+      <p class="body-text">MANIFEST does one thing. It migrates a DITA map to MyST Markdown and proves that every topic is complete. It is an agent built with Agent Development Kit (ADK), Google's open-source agent framework. ADK is licensed under Apache 2.0 and its agents can run on Cloud Run<sup class="ref"><a href="#src-14">14</a></sup>. Gemini 3.8 Flash (<code>gemini-3.8-flash</code>) runs the agent<sup class="ref"><a href="#src-15">15</a></sup> and calls its tools through Gemini function calling<sup class="ref"><a href="#src-16">16</a></sup>.</p>
+      <p class="body-text">The agent has five tools. Each tool is plain Python and gives the same result every time. The agent decides which tool to run next and how to fix a failed topic. The checks decide whether a topic passes. The agent cannot change a check result.</p>
+
+      <div class="subsection-heading" id="how-it-works">5.1 How it works</div>
+      <div class="figure" id="fig4">
+        <div class="figure-label">Figure 4</div>
+        <div class="figure-sublabel">System context: MANIFEST added</div>
+        <div class="figure-body">
+          <svg viewBox="0 0 720 330" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="A writer starts a migration. The MANIFEST agent on Cloud Run calls five tools, then opens a pull request for passing topics and an issue for failing topics.">
+            <defs><marker id="arr4" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M2 1L8 5L2 9" fill="none" stroke="#8a8880" stroke-width="1.5" stroke-linecap="round"/></marker>
+            <marker id="arr4t" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M2 1L8 5L2 9" fill="none" stroke="#0a6b52" stroke-width="1.5" stroke-linecap="round"/></marker>
+            <marker id="arr4c" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M2 1L8 5L2 9" fill="none" stroke="#b03820" stroke-width="1.5" stroke-linecap="round"/></marker></defs>
+            <g font-family="Inter,sans-serif">
+            <rect x="10" y="30" width="130" height="56" rx="6" fill="white" stroke="#d8d5ce" stroke-width="0.75"/>
+            <text x="75" y="54" text-anchor="middle" font-size="11" font-weight="500" fill="#1a1917">Technical writer</text>
+            <text x="75" y="70" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="8.5" fill="#8a8880">migrate tpu.ditamap</text>
+            <rect x="10" y="130" width="130" height="56" rx="6" fill="#eaf2fe" stroke="#90b8e8" stroke-width="0.75"/>
+            <text x="75" y="154" text-anchor="middle" font-size="11" font-weight="500" fill="#1850a0">DITA source</text>
+            <text x="75" y="170" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="8.5" fill="#1850a0">Git · unchanged</text>
+
+            <rect x="190" y="20" width="250" height="176" rx="8" fill="#f0effe" stroke="#b0a8e8" stroke-width="0.75"/>
+            <text x="315" y="42" text-anchor="middle" font-size="12" font-weight="500" fill="#4a40b0">MANIFEST agent</text>
+            <text x="315" y="57" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="8.5" fill="#4a40b0">ADK · gemini-3.8-flash · Cloud Run</text>
+            <g font-family="IBM Plex Mono,monospace" font-size="9">
+              <rect x="208" y="70" width="104" height="24" rx="4" fill="white" stroke="#d8d5ce" stroke-width="0.75"/><text x="260" y="86" text-anchor="middle" fill="#1a1917">inventory_map</text>
+              <rect x="318" y="70" width="104" height="24" rx="4" fill="white" stroke="#d8d5ce" stroke-width="0.75"/><text x="370" y="86" text-anchor="middle" fill="#1a1917">convert_map</text>
+              <rect x="208" y="100" width="104" height="24" rx="4" fill="#e8f5f0" stroke="#80c8b0" stroke-width="0.75"/><text x="260" y="116" text-anchor="middle" fill="#0a6b52">restore_reuse</text>
+              <rect x="318" y="100" width="104" height="24" rx="4" fill="#fdf4e3" stroke="#e8c870" stroke-width="0.75"/><text x="370" y="116" text-anchor="middle" fill="#b07010">check_topic</text>
+              <rect x="208" y="130" width="104" height="24" rx="4" fill="#fdf4e3" stroke="#e8c870" stroke-width="0.75"/><text x="260" y="146" text-anchor="middle" fill="#b07010">check_links</text>
+              <rect x="318" y="130" width="104" height="24" rx="4" fill="white" stroke="#d8d5ce" stroke-width="0.75" stroke-dasharray="3 2"/><text x="370" y="146" text-anchor="middle" fill="#4a40b0">fix (Gemini)</text>
+            </g>
+            <text x="315" y="180" text-anchor="middle" font-size="9.5" fill="#4a40b0">tools: plain Python · fix: Gemini</text>
+            <line x1="140" y1="58" x2="186" y2="70" stroke="#8a8880" stroke-width="0.75" marker-end="url(#arr4)"/>
+            <line x1="140" y1="158" x2="186" y2="140" stroke="#8a8880" stroke-width="0.75" marker-end="url(#arr4)"/>
+
+            <rect x="500" y="20" width="200" height="50" rx="6" fill="white" stroke="#d8d5ce" stroke-width="0.75"/>
+            <text x="600" y="42" text-anchor="middle" font-size="11" font-weight="500" fill="#1a1917">DITA-OT 4.4</text>
+            <text x="600" y="57" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="8.5" fill="#8a8880">markdown · html5</text>
+            <line x1="440" y1="60" x2="496" y2="48" stroke="#8a8880" stroke-width="0.75" marker-end="url(#arr4)"/>
+            <rect x="500" y="90" width="200" height="50" rx="6" fill="white" stroke="#d8d5ce" stroke-width="0.75"/>
+            <text x="600" y="112" text-anchor="middle" font-size="11" font-weight="500" fill="#1a1917">Migration report</text>
+            <text x="600" y="127" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="8.5" fill="#8a8880">Cloud Storage · JSON + HTML</text>
+            <line x1="440" y1="112" x2="496" y2="114" stroke="#8a8880" stroke-width="0.75" marker-end="url(#arr4)"/>
+
+            <rect x="190" y="250" width="200" height="56" rx="6" fill="#e8f5f0" stroke="#80c8b0" stroke-width="0.75"/>
+            <text x="290" y="273" text-anchor="middle" font-size="11" font-weight="500" fill="#0a6b52">Pull request</text>
+            <text x="290" y="289" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="8.5" fill="#0a6b52">passing topics · writer approves</text>
+            <line x1="270" y1="196" x2="270" y2="246" stroke="#0a6b52" stroke-width="0.9" marker-end="url(#arr4t)"/>
+            <text x="278" y="225" font-family="IBM Plex Mono,monospace" font-size="8.5" fill="#0a6b52">pass</text>
+            <rect x="430" y="250" width="200" height="56" rx="6" fill="#fdf0ec" stroke="#e8a090" stroke-width="0.75"/>
+            <text x="530" y="273" text-anchor="middle" font-size="11" font-weight="500" fill="#b03820">Review issue</text>
+            <text x="530" y="289" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="8.5" fill="#b03820">failing topics · with the reason</text>
+            <line x1="380" y1="196" x2="470" y2="246" stroke="#b03820" stroke-width="0.9" stroke-dasharray="4 3" marker-end="url(#arr4c)"/>
+            <text x="432" y="220" font-family="IBM Plex Mono,monospace" font-size="8.5" fill="#b03820">fail after 2 fixes</text>
+            </g>
+          </svg>
+        </div>
+        <div class="figure-note">Compare with Figure 1. The DITA source and DITA-OT stay as they are. The manual copy is replaced by the agent, and every topic now has a report.</div>
+      </div>
+
+      <div class="subsection-heading" id="tools">5.2 Agent tools</div>
+      <div class="tool-list">
+        <div class="tool"><div class="tool-badge"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6"/><path d="M20 20l-4.5-4.5"/></svg></div><div>
+          <h4>1 · Count what is in the source <code>inventory_map</code></h4>
+          <p>Reads the map and its topics with Python and lxml. Counts elements, conrefs, key references, conditional attributes, element IDs and links in each topic. This count is the "before" picture that every check uses.</p>
+          <div class="meta">Output: inventory.json for each topic</div></div></div>
+        <div class="tool"><div class="tool-badge"><svg viewBox="0 0 24 24"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="M9 14h6"/></svg></div><div>
+          <h4>2 · Convert with DITA-OT <code>convert_map</code></h4>
+          <p>Runs DITA-OT 4.4 with the standard <code>markdown</code> format, not the GitHub format, which drops more<sup class="ref"><a href="#src-1">1</a></sup>. Before the run, the tool puts a placeholder in place of each conref, key reference and conditional block in a working copy. DITA-OT cannot resolve a placeholder, so the reuse survives the build. The DITA source is never changed.</p>
+          <div class="meta">Output: Markdown with placeholders · to test first in the MVP: placeholders pass through DITA-OT unchanged</div></div></div>
+        <div class="tool"><div class="tool-badge"><svg viewBox="0 0 24 24"><path d="M12 3l9 5-9 5-9-5z"/><path d="M3 13l9 5 9-5"/></svg></div><div>
+          <h4>3 · Put the reuse back <code>restore_reuse</code></h4>
+          <p>Replaces each placeholder with its MyST Markdown equivalent. Shared content becomes an include file. A key becomes a substitution. Conditional content becomes an <code>only</code> block. Each element ID becomes a target. §5.4 lists every mapping.</p>
+          <div class="meta">Output: MyST Markdown · _includes/ · substitutions file · build tags</div></div></div>
+        <div class="tool"><div class="tool-badge check"><svg viewBox="0 0 24 24"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 12l3 3 5-6"/></svg></div><div>
+          <h4>4 · Check the topic <code>check_topic</code></h4>
+          <p>Runs three checks. <strong>Counts:</strong> counts the output again and compares it with the inventory. <strong>Text:</strong> builds the source with DITA-OT HTML5 and the output with Sphinx for the same DITAVAL file, then compares the text. <strong>IDs:</strong> confirms that every source ID is an anchor. Returns pass, or a list of differences.</p>
+          <div class="meta">Output: pass or fail, with the element and line for each difference</div></div></div>
+        <div class="tool"><div class="tool-badge check"><svg viewBox="0 0 24 24"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/></svg></div><div>
+          <h4>5 · Check the links <code>check_links</code></h4>
+          <p>Runs lychee, an open-source link checker, over the Markdown and the built HTML. It checks internal links offline and writes the result as JSON<sup class="ref"><a href="#src-11">11</a></sup>. It also checks that every old URL has a redirect.</p>
+          <div class="meta">Output: broken links · redirect file for the map</div></div></div>
+      </div>
+
+      <div class="subsection-heading" id="loop">5.3 Agent loop</div>
+      <p class="body-text">The agent runs tools 1 to 5 for each topic. When <code>check_topic</code> reports a difference, Gemini reads the difference and the source, and proposes a fix. For example, it maps an element that has no rule yet. The agent applies the fix and runs the check again. After two failed fixes, it stops and opens a review issue for a writer. The issue contains the source, the output and the check result.</p>
+      <p class="body-text">When a writer approves a fix, MANIFEST saves it as a new mapping rule. The next map uses the rule without calling Gemini.</p>
+
+      <div class="figure" id="fig5">
+        <div class="figure-label">Figure 5</div>
+        <div class="figure-sublabel">What happens to one topic</div>
+        <div class="figure-body">
+          <svg viewBox="0 0 720 200" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Topic flow: convert and restore, check, pass to pull request; on failure Gemini proposes a fix and the check runs again, up to two times, then a writer reviews.">
+            <defs><marker id="arr5" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M2 1L8 5L2 9" fill="none" stroke="#8a8880" stroke-width="1.5" stroke-linecap="round"/></marker></defs>
+            <g font-family="Inter,sans-serif">
+            <rect x="10" y="60" width="120" height="50" rx="6" fill="white" stroke="#d8d5ce" stroke-width="0.75"/>
+            <text x="70" y="82" text-anchor="middle" font-size="11" font-weight="500" fill="#1a1917">Convert and</text><text x="70" y="96" text-anchor="middle" font-size="11" font-weight="500" fill="#1a1917">restore reuse</text>
+            <line x1="130" y1="85" x2="176" y2="85" stroke="#8a8880" stroke-width="0.75" marker-end="url(#arr5)"/>
+            <rect x="180" y="60" width="120" height="50" rx="6" fill="#fdf4e3" stroke="#e8c870" stroke-width="0.75"/>
+            <text x="240" y="82" text-anchor="middle" font-size="11" font-weight="500" fill="#b07010">Check topic</text><text x="240" y="96" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="8.5" fill="#b07010">counts · text · IDs</text>
+            <line x1="300" y1="75" x2="436" y2="40" stroke="#0a6b52" stroke-width="0.9" marker-end="url(#arr5)"/>
+            <text x="350" y="48" font-family="IBM Plex Mono,monospace" font-size="8.5" fill="#0a6b52">pass</text>
+            <rect x="440" y="16" width="130" height="44" rx="6" fill="#e8f5f0" stroke="#80c8b0" stroke-width="0.75"/>
+            <text x="505" y="43" text-anchor="middle" font-size="11" font-weight="500" fill="#0a6b52">Add to pull request</text>
+            <line x1="300" y1="98" x2="376" y2="140" stroke="#b03820" stroke-width="0.9" stroke-dasharray="4 3" marker-end="url(#arr5)"/>
+            <text x="310" y="132" font-family="IBM Plex Mono,monospace" font-size="8.5" fill="#b03820">fail</text>
+            <rect x="380" y="120" width="140" height="50" rx="6" fill="#f0effe" stroke="#b0a8e8" stroke-width="0.75"/>
+            <text x="450" y="142" text-anchor="middle" font-size="11" font-weight="500" fill="#4a40b0">Gemini proposes fix</text><text x="450" y="157" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="8.5" fill="#4a40b0">attempt 1 of 2</text>
+            <path d="M380 150 C 300 190, 230 160, 236 114" fill="none" stroke="#8a8880" stroke-width="0.75" marker-end="url(#arr5)"/>
+            <text x="250" y="182" font-family="IBM Plex Mono,monospace" font-size="8.5" fill="#8a8880">check again</text>
+            <line x1="520" y1="145" x2="576" y2="145" stroke="#b03820" stroke-width="0.9" stroke-dasharray="4 3" marker-end="url(#arr5)"/>
+            <text x="524" y="136" font-family="IBM Plex Mono,monospace" font-size="8.5" fill="#b03820">2 fails</text>
+            <rect x="580" y="120" width="130" height="50" rx="6" fill="#fdf0ec" stroke="#e8a090" stroke-width="0.75"/>
+            <text x="645" y="142" text-anchor="middle" font-size="11" font-weight="500" fill="#b03820">Writer reviews</text><text x="645" y="157" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="8.5" fill="#b03820">approved fix becomes a rule</text>
+            </g>
+          </svg>
+        </div>
+        <div class="figure-note">Gemini is called only for topics that fail a check. Topics that pass on the first run never use the model.</div>
+      </div>
+
+      <div class="subsection-heading" id="mapping">5.4 Reuse mapping</div>
+      <p class="body-text">MyST Markdown supports substitutions, set in the project configuration or in a page's front matter<sup class="ref"><a href="#src-8">8</a></sup>, and an include directive<sup class="ref"><a href="#src-18">18</a></sup>. Sphinx's <code>only</code> directive includes content based on tags set at build time<sup class="ref"><a href="#src-9">9</a></sup>. Together they cover the three DITA reuse features.</p>
+      <div class="table-wrap">
+      <table class="comp-table">
+        <thead><tr><th>DITA</th><th>MyST Markdown</th><th>How the check proves it</th><th>MVP</th></tr></thead>
+        <tbody>
+          <tr><td>Conref</td><td>Include file in <code>_includes/</code>, written once</td><td>Includes in the output equal conrefs in the source</td><td><span class="badge teal">Mapped</span></td></tr>
+          <tr><td>Key reference</td><td>Substitution, for example <code>{{ tpu7x_chips_per_pod }}</code></td><td>Substitutions equal key references; no typed copies</td><td><span class="badge teal">Mapped</span></td></tr>
+          <tr><td>Conditional content and DITAVAL</td><td><code>only</code> block with build tags; one build for each DITAVAL file</td><td>Text matches DITA-OT output for the same DITAVAL file</td><td><span class="badge teal">Mapped</span></td></tr>
+          <tr><td>Element ID</td><td>Target, for example <code>(slice-shapes)=</code></td><td>Every source ID is an anchor</td><td><span class="badge teal">Mapped</span></td></tr>
+          <tr><td>Specialised elements, conref push, key scopes</td><td>No rule</td><td>Sent to a writer as a review issue</td><td><span class="badge amber">Writer</span></td></tr>
+        </tbody>
+      </table>
+      </div>
+      <p class="body-text">One limit to know: Sphinx still processes content inside an <code>only</code> block that a build excludes, which can cause surprises when headings or links sit inside one<sup class="ref"><a href="#src-10">10</a></sup>. The text check in tool 4 is there to catch this.</p>
+
+      <div class="subsection-heading" id="target">5.5 Why Sphinx and MyST</div>
+      <div class="table-wrap">
+      <table class="comp-table">
+        <thead><tr><th>Option</th><th>Reuse support</th><th>Result</th></tr></thead>
+        <tbody>
+          <tr class="highlight"><td>Sphinx with MyST Markdown</td><td>Includes, substitutions and build tags are built in. Python, like the rest of MANIFEST.</td><td><span class="badge teal">Chosen</span></td></tr>
+          <tr><td>Material for MkDocs</td><td>Reaches end of life on 5 November 2026<sup class="ref"><a href="#src-6">6</a></sup>.</td><td><span class="badge red">Not chosen</span></td></tr>
+          <tr><td>Docusaurus</td><td>Reuse works by importing MDX files. The page's table of contents does not include headings from imported Markdown<sup class="ref"><a href="#src-7">7</a></sup>.</td><td><span class="badge amber">Not chosen</span></td></tr>
+        </tbody>
+      </table>
+      </div>
+
+      <div class="subsection-heading" id="runtime">5.6 Where it runs</div>
+      <div class="table-wrap">
+      <table class="comp-table">
+        <thead><tr><th>Part</th><th>Service</th><th>Note</th></tr></thead>
+        <tbody>
+          <tr><td>Agent</td><td>Cloud Run job, one map per run</td><td>Free tier: 180,000 vCPU-seconds a month<sup class="ref"><a href="#src-13">13</a></sup></td></tr>
+          <tr><td>Pull request check</td><td>GitHub Actions</td><td>Standard runners are free for public repositories<sup class="ref"><a href="#src-12">12</a></sup></td></tr>
+          <tr><td>Reports</td><td>Cloud Storage, US region</td><td>Free tier: 5 GB-months<sup class="ref"><a href="#src-13">13</a></sup></td></tr>
+          <tr><td>Model</td><td>Gemini API, <code>gemini-3.8-flash</code></td><td>The free tier is acceptable here because the sample content is public. Free tier content is used to improve Google products, so private content needs the paid tier<sup class="ref"><a href="#src-17">17</a></sup>.</td></tr>
+        </tbody>
+      </table>
+      </div>
+    </section>
+
+    <!-- §6 SIMULATOR -->
+    <section class="section" id="simulator">
+      <h2 class="section-heading"><span class="section-num">§6</span> Migration Simulator</h2>
+      <p class="body-text">The simulator runs three sample topics through MANIFEST. Each run shows the tools in order and the log that the agent writes. The runs are scripted to show the design. They do not call Gemini or DITA-OT.</p>
+
+      <div class="sim-wrap">
+        <div class="sim-header">
+          <div class="sim-title">manifest · migration simulator</div>
+          <div class="sim-status" id="sim-status">idle</div>
+        </div>
+        <div class="sim-body">
+          <div class="sim-controls">
+            <div class="sim-controls-label">Sample topic</div>
+            <button class="scenario-btn active" type="button" data-s="0">Task · create a TPU VM</button>
+            <button class="scenario-btn" type="button" data-s="1">Reference · TPU7x specs</button>
+            <button class="scenario-btn" type="button" data-s="2">Concept · slice planning</button>
+            <div class="scenario-desc" id="sim-desc"></div>
+            <button class="run-btn" id="run-btn" type="button">run migration →</button>
+          </div>
+          <div class="sim-stages">
+            <div class="stage-row"><div class="stage-name"><div class="stage-dot" id="dot-0"></div><div><div class="stage-name-text">inventory_map</div><div class="stage-sub">count the source</div></div></div><div class="stage-bar-wrap"><div class="stage-bar" id="bar-0"></div></div><div class="stage-timing" id="tim-0">·</div></div>
+            <div class="stage-row"><div class="stage-name"><div class="stage-dot" id="dot-1"></div><div><div class="stage-name-text">convert_map</div><div class="stage-sub">DITA-OT · markdown</div></div></div><div class="stage-bar-wrap"><div class="stage-bar" id="bar-1"></div></div><div class="stage-timing" id="tim-1">·</div></div>
+            <div class="stage-row"><div class="stage-name"><div class="stage-dot" id="dot-2"></div><div><div class="stage-name-text">restore_reuse</div><div class="stage-sub">placeholders → MyST</div></div></div><div class="stage-bar-wrap"><div class="stage-bar" id="bar-2"></div></div><div class="stage-timing" id="tim-2">·</div></div>
+            <div class="stage-row"><div class="stage-name"><div class="stage-dot" id="dot-3"></div><div><div class="stage-name-text">check_topic</div><div class="stage-sub">counts · text · IDs</div></div></div><div class="stage-bar-wrap"><div class="stage-bar" id="bar-3"></div></div><div class="stage-timing" id="tim-3">·</div></div>
+            <div class="stage-row"><div class="stage-name"><div class="stage-dot" id="dot-4"></div><div><div class="stage-name-text">fix</div><div class="stage-sub">Gemini · only on failure</div></div></div><div class="stage-bar-wrap"><div class="stage-bar" id="bar-4"></div></div><div class="stage-timing" id="tim-4">·</div></div>
+            <div class="stage-row"><div class="stage-name"><div class="stage-dot" id="dot-5"></div><div><div class="stage-name-text">check_links</div><div class="stage-sub">lychee · redirects</div></div></div><div class="stage-bar-wrap"><div class="stage-bar" id="bar-5"></div></div><div class="stage-timing" id="tim-5">·</div></div>
+            <div class="stage-row"><div class="stage-name"><div class="stage-dot" id="dot-6"></div><div><div class="stage-name-text">result</div><div class="stage-sub">pull request or review issue</div></div></div><div class="stage-bar-wrap"><div class="stage-bar" id="bar-6"></div></div><div class="stage-timing" id="tim-6">·</div></div>
+          </div>
+        </div>
+        <pre class="sim-output" id="sim-output"><span class="out-comment">// choose a sample topic and run the migration</span></pre>
+        <div class="sim-note">Scripted demo. No live model or DITA-OT call. Counts are illustrative.</div>
+      </div>
+    </section>
+
+    <!-- §7 METRICS -->
+    <section class="section" id="metrics">
+      <h2 class="section-heading"><span class="section-num">§7</span> Success Metrics</h2>
+      <p class="body-text">The MVP runs on the TPU sample map. It succeeds if the numbers below are met on that map. The first metric matters most: a migration that reports every loss is safe to review, even when it has failures.</p>
+      <div class="table-wrap">
+      <table class="comp-table">
+        <thead><tr><th>Metric</th><th>How it is measured</th><th>MVP target</th></tr></thead>
+        <tbody>
+          <tr class="highlight"><td>Unreported losses</td><td>Losses a writer finds after merge that the report did not list</td><td>0</td></tr>
+          <tr><td>Topics checked</td><td>Topics with a report ÷ topics in the map</td><td>100%</td></tr>
+          <tr><td>Reuse kept</td><td>Includes and substitutions in the output ÷ conrefs and key references in the source</td><td>100% of mapped features</td></tr>
+          <tr><td>IDs kept</td><td>Source element IDs that are anchors in the output</td><td>100%</td></tr>
+          <tr><td>Broken links</td><td>lychee result after migration, including old URLs</td><td>0</td></tr>
+          <tr><td>Topics passed without a writer</td><td>Topics that pass on the first run or after a Gemini fix</td><td>Set from the first run; tracked for each map</td></tr>
+          <tr><td>Fixes approved</td><td>Gemini fixes that a writer approves ÷ fixes proposed</td><td>Tracked; each approved fix becomes a rule</td></tr>
+        </tbody>
+      </table>
+      </div>
+
+      <div class="figure" id="fig6">
+        <div class="figure-label">Figure 6</div>
+        <div class="figure-sublabel">Sample migration report for one map (illustrative values)</div>
+        <div class="report">
+          <div class="report-head"><span>tpu-generations.ditamap · run 0007</span><span class="badge amber">1 topic needs review</span></div>
+          <div class="report-sum">
+            <div><b style="color:var(--text)">24</b><span>topics</span></div>
+            <div><b style="color:var(--teal)">21</b><span>passed first run</span></div>
+            <div><b style="color:var(--purple)">2</b><span>passed after fix</span></div>
+            <div><b style="color:var(--coral)">1</b><span>sent to a writer</span></div>
+          </div>
+          <div class="table-wrap" style="margin:0">
+          <table class="comp-table">
+            <thead><tr><th>Topic</th><th>Counts</th><th>Text</th><th>IDs</th><th>Links</th><th>Note</th></tr></thead>
+            <tbody>
+              <tr><td>create-tpu-vm</td><td><span class="badge teal">pass</span></td><td><span class="badge teal">pass</span></td><td><span class="badge teal">pass</span></td><td><span class="badge teal">pass</span></td><td>None</td></tr>
+              <tr><td>tpu7x-specs</td><td><span class="badge teal">pass</span></td><td><span class="badge teal">pass</span></td><td><span class="badge teal">pass</span></td><td><span class="badge teal">pass</span></td><td>3 includes, 9 substitutions restored</td></tr>
+              <tr><td>v6e-specs</td><td><span class="badge purple">fixed</span></td><td><span class="badge teal">pass</span></td><td><span class="badge teal">pass</span></td><td><span class="badge teal">pass</span></td><td>Definition list mapped by Gemini; approved</td></tr>
+              <tr><td>slice-planning</td><td><span class="badge red">fail</span></td><td><span class="badge teal">pass</span></td><td><span class="badge teal">pass</span></td><td><span class="badge teal">pass</span></td><td>Specialised element has no rule; issue #41</td></tr>
+            </tbody>
+          </table>
+          </div>
+        </div>
+        <div class="figure-note">The report is the evidence for US-01. A writer reviews one issue instead of 24 pages.</div>
+      </div>
+    </section>
+
+    <!-- SOURCES -->
+    <section class="section" id="sources">
+      <h2 class="section-heading">Sources</h2>
+      <p class="body-text">Checked on 19 October 2026.</p>
+      <ol class="sources">
+        <li id="src-1"><span>DITA Open Toolkit 4.3, "Generating Markdown output." <a href="https://www.dita-ot.org/4.3/topics/dita2markdown">dita-ot.org/4.3/topics/dita2markdown</a></span></li>
+        <li id="src-2"><span>DITA Open Toolkit, "Migrating to release 4.4." <a href="https://www.dita-ot.org/4.4/topics/migrating-to-4.4">dita-ot.org/4.4/topics/migrating-to-4.4</a></span></li>
+        <li id="src-3"><span>DITA Open Toolkit, pre-processing modules: debug and filter, branch filtering, keyref, conref and profile steps. <a href="https://www.dita-ot.org/dev/reference/preprocess-debugfilter">dita-ot.org/dev/reference/preprocess-debugfilter</a></span></li>
+        <li id="src-4"><span>Google Cloud, "TPU7x (Ironwood)," last updated 13 October 2026. <a href="https://docs.cloud.google.com/tpu/docs/tpu7x">docs.cloud.google.com/tpu/docs/tpu7x</a></span></li>
+        <li id="src-5"><span>Google Developers, "Site Policies." <a href="https://developers.google.com/site-policies">developers.google.com/site-policies</a></span></li>
+        <li id="src-6"><span>mkdocs-material 9.7.7 release notes (17 July 2026), quoted in a dependency update. <a href="https://github.com/cms-cat/mkdocs-material/pull/229">github.com/cms-cat/mkdocs-material/pull/229</a></span></li>
+        <li id="src-7"><span>Docusaurus, "MDX and React: Importing Markdown." <a href="https://docusaurus.io/docs/markdown-features/react">docusaurus.io/docs/markdown-features/react</a></span></li>
+        <li id="src-8"><span>MyST-Parser, "Syntax extensions: Substitutions." <a href="https://myst-parser.readthedocs.io/en/stable/syntax/optional.html">myst-parser.readthedocs.io/en/stable/syntax/optional.html</a></span></li>
+        <li id="src-9"><span>Sphinx <code>only</code> directive reference. <a href="https://devopstutodoc.readthedocs.io/en/latest/doc_generators/sphinx/rest_sphinx/markup/misc/only.html">devopstutodoc.readthedocs.io</a></span></li>
+        <li id="src-10"><span>MongoDB Meta Documentation, "cond Directive." <a href="https://www.mongodb.com/es/docs/meta/reference/cond">mongodb.com/docs/meta/reference/cond</a></span></li>
+        <li id="src-11"><span>lychee link checker. <a href="https://snapcraft.io/lychee">snapcraft.io/lychee</a> · <a href="https://github.com/lycheeverse/lychee-action">github.com/lycheeverse/lychee-action</a></span></li>
+        <li id="src-12"><span>GitHub Docs, "How use of GitHub Actions is measured." <a href="https://docs.github.com/en/billing/concepts/product-billing/github-actions">docs.github.com/en/billing/concepts/product-billing/github-actions</a></span></li>
+        <li id="src-13"><span>Google Cloud, "Free Tier." <a href="https://cloud.google.com/free">cloud.google.com/free</a></span></li>
+        <li id="src-14"><span>Google, Agent Development Kit documentation README. <a href="https://cdn.jsdelivr.net/gh/google/adk-docs@main/README.md">github.com/google/adk-docs</a></span></li>
+        <li id="src-15"><span>Google AI for Developers, "Gemini models." <a href="https://ai.google.dev/gemini-api/docs/models">ai.google.dev/gemini-api/docs/models</a></span></li>
+        <li id="src-16"><span>Google AI for Developers, "Function calling with the Gemini API." <a href="https://ai.google.dev/gemini-api/docs/function-calling">ai.google.dev/gemini-api/docs/function-calling</a></span></li>
+        <li id="src-17"><span>Google AI for Developers, "Gemini Developer API pricing." <a href="https://ai.google.dev/gemini-api/docs/pricing">ai.google.dev/gemini-api/docs/pricing</a></span></li>
+        <li id="src-18"><span>MyST-Parser changelog (include directive in MyST documents). <a href="https://github.com/executablebooks/MyST-Parser/blob/v0.19.1/CHANGELOG.md">github.com/executablebooks/MyST-Parser</a></span></li>
+      </ol>
+    </section>
+
+  </div>
+
+  <footer class="doc-footer">
+    <span>manifest / design-doc · v0.1</span>
+    <span>Siddharth Rao · October 2026</span>
+  </footer>
+</main>
+</div>
+
+<script>
+(function(){
+  var scenarios = [
+    { desc:'<strong>Task: create a TPU VM.</strong> A short procedure with numbered steps, two code blocks and one cross-reference. No reuse. This is the simplest case.',
+      t:[180,420,140,520,0,300,120], skipFix:true, result:'done',
+      log:[
+        ['head','manifest run · topic: create-tpu-vm.dita'],
+        ['comment','// inventory_map'],
+        ['k','elements: ','v','38   conrefs: 0   keyrefs: 0   ids: 4   links: 3'],
+        ['comment','// convert_map: dita-ot 4.4, format=markdown'],
+        ['k','placeholders: ','v','0 (nothing to protect)'],
+        ['comment','// restore_reuse'],
+        ['k','includes: ','v','0   substitutions: 0   targets: 4'],
+        ['comment','// check_topic'],
+        ['k','counts: ','v','pass   text: pass   ids: pass (4/4)'],
+        ['comment','// fix: skipped, no failures, model not called'],
+        ['comment','// check_links'],
+        ['k','links: ','v','3/3 ok   redirects: 1 written'],
+        ['head','result: added to pull request #12']
+      ]},
+    { desc:'<strong>Reference: TPU7x specs.</strong> The spec table uses 9 key references (chips per pod, HBM, ICI) and 3 conrefs to shared notes. Plain conversion would copy all of them as text.',
+      t:[200,460,380,560,0,310,120], skipFix:true, result:'done',
+      log:[
+        ['head','manifest run · topic: tpu7x-specs.dita'],
+        ['comment','// inventory_map'],
+        ['k','elements: ','v','112   conrefs: 3   keyrefs: 9   ids: 7   links: 5'],
+        ['comment','// convert_map: dita-ot 4.4, format=markdown'],
+        ['k','placeholders: ','v','12 inserted, 12 found in output'],
+        ['comment','// restore_reuse'],
+        ['k','includes: ','v','3 (_includes/slice-shapes.md, ...)'],
+        ['k','substitutions: ','v','9 ({{ tpu7x_chips_per_pod }} = 9,216, ...)'],
+        ['comment','// check_topic'],
+        ['k','counts: ','v','pass   includes 3/3   substitutions 9/9'],
+        ['k','text: ','v','pass (matches dita-ot html5)   ids: pass (7/7)'],
+        ['comment','// fix: skipped, no failures, model not called'],
+        ['comment','// check_links'],
+        ['k','links: ','v','5/5 ok   redirects: 1 written'],
+        ['head','result: added to pull request #12']
+      ]},
+    { desc:'<strong>Concept: slice planning.</strong> Has operator-only content, a definition list and one specialised element. Gemini fixes the definition list. The specialised element has no rule, so a writer decides.',
+      t:[190,450,300,540,900,300,140], skipFix:false, result:'review',
+      log:[
+        ['head','manifest run · topic: slice-planning.dita'],
+        ['comment','// inventory_map'],
+        ['k','elements: ','v','86   conrefs: 1   keyrefs: 4   conditions: 2 (audience=operator)   dl: 1   ids: 5'],
+        ['comment','// convert_map: dita-ot 4.4, format=markdown'],
+        ['k','placeholders: ','v','7 inserted, 7 found in output'],
+        ['comment','// restore_reuse'],
+        ['k','includes: ','v','1   substitutions: 4   only blocks: 2 (tag: operator)'],
+        ['comment','// check_topic'],
+        ['f','counts: FAIL   dl: expected 1, found 0'],
+        ['f','counts: FAIL   element <hazardstatement> has no rule'],
+        ['comment','// fix attempt 1: gemini-3.8-flash'],
+        ['k','proposal: ','v','map <dl> to MyST definition list (3 terms)'],
+        ['k','re-check: ','v','dl 1/1 pass'],
+        ['comment','// fix attempt 2: gemini-3.8-flash'],
+        ['k','proposal: ','v','map <hazardstatement> to a warning block'],
+        ['w','re-check: specialised elements always need a writer. Not applied.'],
+        ['comment','// check_links'],
+        ['k','links: ','v','6/6 ok   redirects: 1 written'],
+        ['head','result: review issue #41 opened (source, output, check result attached)']
+      ]}
+  ];
+  var active = 0, running = false;
+  var btns = document.querySelectorAll('.scenario-btn');
+  var desc = document.getElementById('sim-desc');
+  var out = document.getElementById('sim-output');
+  var status = document.getElementById('sim-status');
+  var run = document.getElementById('run-btn');
+  var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  function reset(){
+    for (var i=0;i<7;i++){
+      document.getElementById('dot-'+i).className='stage-dot';
+      var b=document.getElementById('bar-'+i); b.className='stage-bar'; b.style.width='0';
+      var t=document.getElementById('tim-'+i); t.className='stage-timing'; t.textContent='·';
+    }
+    out.innerHTML='<span class="out-comment">// choose a sample topic and run the migration</span>';
+    status.textContent='idle'; status.className='sim-status';
+  }
+  function select(i){
+    if (running) return;
+    active=i;
+    btns.forEach(function(b,j){ b.classList.toggle('active', i===j); });
+    desc.innerHTML=scenarios[i].desc;
+    reset();
+  }
+  function wait(ms){ return new Promise(function(r){ setTimeout(r, reduce ? 0 : ms); }); }
+  function line(l){
+    var s=document.createElement('span'); s.className='out-line';
+    if (l[0]==='head') s.innerHTML='<span class="out-head"></span>';
+    else if (l[0]==='comment') s.innerHTML='<span class="out-comment"></span>';
+    else if (l[0]==='w') s.innerHTML='<span class="out-warn"></span>';
+    else if (l[0]==='f') s.innerHTML='<span class="out-fail"></span>';
+    if (l[0]==='k'){ var a=document.createElement('span'); a.className='out-key'; a.textContent=l[1]; var v=document.createElement('span'); v.className='out-val'; v.textContent=l[3]; s.appendChild(a); s.appendChild(v); }
+    else s.firstChild.textContent=l[1];
+    out.appendChild(s); out.scrollTop=out.scrollHeight;
+  }
+  async function go(){
+    if (running) return;
+    running=true; run.disabled=true;
+    var sc=scenarios[active];
+    reset(); out.innerHTML='';
+    status.textContent='running'; status.className='sim-status running';
+    // group log lines by stage, using the comment marker that opens each stage
+    var groups=[[],[],[],[],[],[],[]], g=-1, names=['inventory_map','convert_map','restore_reuse','check_topic','fix','check_links','result'];
+    sc.log.forEach(function(l,idx){
+      if (idx===0) return;
+      if (l[0]==='comment'){ for (var n=0;n<names.length;n++){ if (l[1].indexOf(names[n])>-1 || (n===4 && l[1].indexOf('fix')>-1)) { g=Math.max(g,n); break; } } }
+      if (l[0]==='head') g=6;
+      groups[Math.max(g,0)].push(l);
+    });
+    line(sc.log[0]);
+    for (var i=0;i<7;i++){
+      var dot=document.getElementById('dot-'+i), bar=document.getElementById('bar-'+i), tim=document.getElementById('tim-'+i);
+      if (i===4 && sc.skipFix){
+        dot.className='stage-dot skip'; bar.className='stage-bar skip'; bar.style.width='100%'; tim.textContent='skipped';
+        for (var k=0;k<groups[i].length;k++){ line(groups[i][k]); }
+        await wait(150); continue;
+      }
+      dot.className='stage-dot running';
+      bar.style.width='100%';
+      await wait(sc.t[i]);
+      var isReview = (sc.result==='review' && (i===6));
+      dot.className = isReview ? 'stage-dot review' : 'stage-dot done';
+      if (isReview) bar.className='stage-bar review';
+      tim.textContent = isReview ? 'review' : (sc.t[i]<1000 ? sc.t[i]+'ms' : (sc.t[i]/1000).toFixed(1)+'s');
+      tim.className='stage-timing done';
+      for (var j=0;j<groups[i].length;j++){ line(groups[i][j]); await wait(60); }
+    }
+    status.textContent = sc.result==='review' ? 'sent to writer' : 'passed';
+    status.className = 'sim-status ' + (sc.result==='review' ? 'review' : 'done');
+    running=false; run.disabled=false;
+  }
+  btns.forEach(function(b){ b.addEventListener('click', function(){ select(+b.getAttribute('data-s')); }); });
+  run.addEventListener('click', go);
+  select(0);
+
+  var sections=document.querySelectorAll('header[id], section[id]');
+  var links=document.querySelectorAll('.sidebar-nav a:not(.sub)');
+  function onScroll(){
+    var cur='';
+    sections.forEach(function(s){ if (window.scrollY >= s.offsetTop - 120) cur=s.id; });
+    links.forEach(function(a){ a.classList.toggle('active', a.getAttribute('href')==='#'+cur); });
+  }
+  window.addEventListener('scroll', onScroll, {passive:true}); onScroll();
+})();
+</script>
+</body>
+</html>

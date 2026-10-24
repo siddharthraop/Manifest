@@ -7,6 +7,7 @@ import sys
 from pathlib import Path
 
 from manifest import __version__
+from manifest.tools.check import CheckError, check_topics
 from manifest.tools.convert import ConvertError, convert_map
 from manifest.tools.inventory import inventory_map
 from manifest.tools.restore import RestoreError, restore_reuse
@@ -79,6 +80,31 @@ def _restore(args: argparse.Namespace) -> int:
     return 0
 
 
+def _check(args: argparse.Namespace) -> int:
+    try:
+        res = check_topics(Path(args.map), Path(args.myst), Path(args.out), args.dita)
+    except CheckError as exc:
+        print(f"error: {exc}")
+        return 2
+    t = res.totals()
+    print(
+        f"{res.map}: {t['topics_passed']}/{t['topics']} topics pass in all {t['builds']} builds "
+        f"({t['comparisons']} comparisons, {t['differences']} differences, "
+        f"{t['page_differences']} page differences)"
+    )
+    for build, diffs in res.page_differences.items():
+        for d in diffs:
+            print(f"  PAGES [{build}] {d.detail}")
+    for topic in res.topics:
+        for b in topic.builds:
+            for d in b.differences:
+                print(
+                    f"  FAIL {topic.topic} [{b.build}] {d.check}: {d.detail}  DITA={d.dita!r} MyST={d.myst!r}"
+                )
+    print(f"Wrote {args.out}/check.json")
+    return 0 if res.ok else 1
+
+
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(prog="manifest", description=__doc__)
     p.add_argument("--version", action="version", version=f"manifest {__version__}")
@@ -101,6 +127,12 @@ def main(argv: list[str] | None = None) -> int:
     rest.add_argument("--convert", default="build/convert", help="convert output folder")
     rest.add_argument("--out", default="build/myst", help="Sphinx project to write")
     rest.set_defaults(func=_restore)
+    chk = sub.add_parser("check", help="compare DITA-OT HTML5 with the Sphinx build, topic by topic (tool 4)")
+    chk.add_argument("map", help="path to the root .ditamap")
+    chk.add_argument("--myst", default="build/myst", help="the restored Sphinx project")
+    chk.add_argument("--out", default="build/check", help="where to write both builds and check.json")
+    chk.add_argument("--dita", default=None, help="path to the DITA-OT launcher")
+    chk.set_defaults(func=_check)
     args = p.parse_args(argv)
     result: int = args.func(args)
     return result

@@ -171,3 +171,24 @@ def test_the_dita_source_is_never_changed(converted) -> None:  # type: ignore[no
 def test_dita_ot_version_is_recorded(converted) -> None:  # type: ignore[no-untyped-def]
     res, _ = converted
     assert res.dita_ot.startswith("4.4")
+
+
+# ---------------------------------------------------------------- mapping rules found by the text check (2d)
+
+
+def test_optional_step_keeps_its_label() -> None:
+    """DITA-OT HTML5 shows 'Optional:'; its Markdown writer drops it, hiding that the step is optional."""
+    out, _ = tok(
+        '<task id="t"><title>T</title><taskbody><steps><step importance="optional"><cmd>Add a flag.</cmd>'
+        "</step></steps></taskbody></task>"
+    )
+    assert "<cmd><b>Optional:</b> Add a flag.</cmd>" in out
+
+
+def test_inline_code_markup_is_flattened() -> None:
+    """DITA-OT's Markdown writer turned <codeph>--zone=<varname>ZONE</varname></codeph> into `--zone=*ZONE*`."""
+    out, _ = tok(
+        '<topic id="t"><title>T</title><body><p><codeph>list --zone=<varname>ZONE</varname></codeph></p>'
+        "</body></topic>"
+    )
+    assert "<codeph>list --zone=ZONE</codeph>" in out

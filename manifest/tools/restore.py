@@ -412,6 +412,74 @@ def _possible_typed_copies(model: Any, src: Path) -> list[dict[str, Any]]:
     return out
 
 
+IMAGE_LINE = re.compile(r'^\s*(?:<span id="[^"]*"></span>)?!\[[^\]]*\]\(([^)\s]+)(?:\s+"([^"]*)")?\)\s*$')
+CHILD_LINK = re.compile(r"^-\s+\*\*\[[^\]]*\]\(([^)\s]+\.md)\)\*\*\s*$")
+NAV_CLASS = "manifest-nav"
+FIGURE_CLASS = "manifest-figure"
+
+
+def _wrap(css: str, body: list[str], lead: list[str] | None = None) -> list[str]:
+    # Five colons, so `only` blocks (four) can nest inside.
+    return ["", f":::::{{container}} {css}", "", *(lead or []), *body, "", ":::::", ""]
+
+
+def mark_generated(lines: list[str], md_rel: str, children: set[str]) -> list[str]:
+    """Wrap the navigation DITA-OT generates from the map (child links, parent link, related
+    links) in a `manifest-nav` container, so authored text and generated links can be checked
+    separately, and give each figure its title back as a caption.
+
+    DITA-OT's Markdown writer keeps a figure title only as each image's tooltip; its HTML5
+    output shows it as a caption. The text check found the loss on the TPU corpus."""
+    here = Path(md_rel).parent
+    edits: list[_Edit] = []
+    n = len(lines)
+    rel = next((i for i, ln in enumerate(lines) if ln.strip() == "**Related information**"), None)
+    end = n
+    if rel is not None:
+        while end > rel and not lines[end - 1].strip():
+            end -= 1
+        edits.append(_Edit(rel, end, _wrap(NAV_CLASS, lines[rel:end])))
+    limit = rel if rel is not None else n
+    i = 0
+    while i < limit:
+        line = lines[i]
+        if line.startswith("**Parent topic:**"):
+            edits.append(_Edit(i, i + 1, _wrap(NAV_CLASS, [line])))
+            i += 1
+            continue
+        if CHILD_LINK.match(line):
+            j, targets = i, []
+            while j < limit and (cm := CHILD_LINK.match(lines[j])):
+                targets.append(os.path.normpath(here / cm.group(1)))
+                j += 1
+                while j < limit and lines[j].strip() and not lines[j].startswith(("-", "**")):
+                    j += 1
+            if targets and all(t in children for t in targets):
+                edits.append(_Edit(i, j, _wrap(NAV_CLASS, lines[i:j])))
+                i = j
+                continue
+        im = IMAGE_LINE.match(line)
+        if im and im.group(2):
+            title, j, last = im.group(2), i, i
+            while j < limit:
+                jm = IMAGE_LINE.match(lines[j])
+                if jm and jm.group(2) == title:
+                    last = j
+                    j += 1
+                elif not lines[j].strip():
+                    j += 1
+                else:
+                    break
+            caption = ["{." + FIGURE_CLASS + "-caption}", title, ""]
+            edits.append(_Edit(i, last + 1, _wrap(FIGURE_CLASS, lines[i : last + 1], caption)))
+            i = last + 1
+            continue
+        i += 1
+    for ed in sorted(edits, key=lambda x: x.start, reverse=True):
+        lines[ed.start : ed.end] = ed.new
+    return lines
+
+
 # ---------------------------------------------------------------- keys, conrefs, IDs, headings
 
 
@@ -599,7 +667,8 @@ from pathlib import Path
 _m = Path(__file__).parent / "_manifest"
 project = __PROJECT__
 extensions = ["myst_parser", "sphinx_substitution_extensions"]
-myst_enable_extensions = ["substitution", "colon_fence", "attrs_inline", "deflist"]
+myst_enable_extensions = ["substitution", "colon_fence", "attrs_inline", "attrs_block", "deflist"]
+smartquotes = False  # DITA-OT keeps straight quotes; curly ones would change the text
 myst_substitutions = json.loads((_m / "substitutions.json").read_text(encoding="utf-8"))
 exclude_patterns = ["_build", "_includes/**", "_manifest/**"]
 html_title = project
@@ -783,6 +852,12 @@ def restore_reuse(
         md_rel = str(Path(rel).with_suffix(".md"))
         topic_id = parse(t.path).getroot().get("id")
         lines = (md_in / md_rel).read_text(encoding="utf-8").split("\n")
+        child_pages = {
+            str(Path(str(k.path.relative_to(src))).with_suffix(".md"))
+            for k in model.topics
+            if k.parent == t.path
+        }
+        lines = mark_generated(lines, md_rel, child_pages)
         lines = apply_conditions(
             lines, [c for c in ledger if c["kind"] == "condition" and c["owner"] == rel], builds, result, rel
         )

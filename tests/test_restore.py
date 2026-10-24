@@ -210,10 +210,14 @@ def test_leftover_tokens_are_a_hard_error() -> None:
 def test_generated_links_to_unpublished_pages_are_guarded(builds: list[Build]) -> None:
     by_build = {b.name: b for b in builds}
     md = ["-   **[Memory](../topics/m.md)**  ", "How memory works.", "", "[Specs](../topics/s.md)", ""]
+
+    def rule(target: str) -> list[str]:  # m.md exists only in two builds; everything else in all
+        return ["unfiltered", "v6e"] if target == "topics/m.md" else [b.name for b in builds]
+
     out = guard_links(
         md,
         "topics/a.md",
-        {"topics/m.md": ["unfiltered", "v6e"]},
+        rule,
         builds,
         by_build,
         RestoreResult("", []),

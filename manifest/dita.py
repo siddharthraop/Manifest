@@ -48,6 +48,7 @@ class TopicEntry:
     processing_role: str  # "normal" or "resource-only"
     conditions: dict[str, tuple[str, ...]] = field(default_factory=dict)  # cascaded from the map
     parent: Path | None = None  # the topic this one sits under in the map, if any
+    collection: str | None = None  # @collection-type on its topicref ("family": children link to each other)
 
 
 @dataclass
@@ -59,6 +60,8 @@ class MapModel:
     # Topics a relationship table references, with the conditions on that reference. DITA-OT
     # publishes a topic if any visible reference reaches it, even one filtered out of the TOC.
     reltable_refs: list[tuple[Path, dict[str, tuple[str, ...]]]] = field(default_factory=list)
+    # Pairs of topics a relationship table relates (topics in different cells of one row).
+    reltable_pairs: set[frozenset[Path]] = field(default_factory=set)
 
 
 def _conditions(el: etree._Element, inherited: dict[str, tuple[str, ...]]) -> dict[str, tuple[str, ...]]:
@@ -86,6 +89,7 @@ def load_map(map_path: Path) -> MapModel:
     keys: dict[str, str] = {}
     seen: set[Path] = set()
     relrefs: list[tuple[Path, dict[str, tuple[str, ...]]]] = []
+    pairs: set[frozenset[Path]] = set()
     rows = 0
 
     def walk(
@@ -101,6 +105,18 @@ def load_map(map_path: Path) -> MapModel:
                 continue
             if child.tag == "reltable":
                 rows += sum(1 for _ in child.iter("relrow"))
+                for row in child.iter("relrow"):
+                    cells = [
+                        [
+                            (base / r.get("href", "").split("#")[0]).resolve()
+                            for r in cell.iter("topicref")
+                            if r.get("href", "").split("#")[0].endswith(".dita")
+                        ]
+                        for cell in row.iter("relcell")
+                    ]
+                    for i, a_cell in enumerate(cells):
+                        for b_cell in cells[i + 1 :]:
+                            pairs.update(frozenset((a, b)) for a in a_cell for b in b_cell if a != b)
                 for ref in child.iter("topicref"):
                     href = ref.get("href")
                     if href and is_local(href) and href.split("#")[0].endswith(".dita"):
@@ -129,7 +145,11 @@ def load_map(map_path: Path) -> MapModel:
                 p = (base / href.split("#")[0]).resolve()
                 if p not in seen:
                     seen.add(p)
-                    topics.append(TopicEntry(p, len(topics), child_role, child_cond, parent))
+                    topics.append(
+                        TopicEntry(
+                            p, len(topics), child_role, child_cond, parent, child.get("collection-type")
+                        )
+                    )
                 walk(child, base, child_role, child_cond, p)
                 continue
             walk(child, base, child_role, child_cond, parent)
@@ -137,7 +157,7 @@ def load_map(map_path: Path) -> MapModel:
     root_tree = parse(map_path)
     keys.update(_keydefs(root_tree))
     walk(root_tree.getroot(), map_path.parent, "normal", {})
-    return MapModel(map_path, topics, keys, rows, relrefs)
+    return MapModel(map_path, topics, keys, rows, relrefs, pairs)
 
 
 def iter_body(root: etree._Element) -> Iterator[etree._Element]:

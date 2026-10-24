@@ -21,6 +21,7 @@ import json
 import os
 import re
 import shutil
+from collections.abc import Callable
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any
@@ -333,24 +334,24 @@ GUARD_CLOSE = "% manifest:end"
 def guard_links(
     lines: list[str],
     md_rel: str,
-    pages: dict[str, list[str]],
+    link_builds: Callable[[str], list[str]],
     builds: list[Build],
     by_build: dict[str, Build],
     result: RestoreResult,
     owner: str,
 ) -> list[str]:
-    """Links DITA-OT generates (parent, child and related links) to a page some builds don't
-    publish: DITA-OT leaves them out of those builds. They are wrapped in guard comments that
-    conf.py's source-read hook removes before parsing, because Sphinx resolves links even inside
-    an excluded `only` block and warns (design doc §5.4). A link in running text can't be cut
-    that way; it is recorded for review instead."""
+    """Links DITA-OT generates (parent, child and related links) exist only in the builds where
+    their relationship holds (`link_builds`, from the map): DITA-OT leaves them out elsewhere.
+    They are wrapped in guard comments that conf.py's source-read hook removes before parsing,
+    because Sphinx resolves links even inside an excluded `only` block and warns (design doc
+    §5.4). A link in running text can't be cut that way; it is recorded for review instead."""
     here = Path(md_rel).parent
     toks = _blocks(lines)
     edits: list[_Edit] = []
     done: set[int] = set()
     for i, line in enumerate(lines):
         targets = [os.path.normpath(here / m.group(2)) for m in LINK.finditer(line)]
-        limited = [p for p in targets if p in pages]
+        limited = [p for p in targets if len(link_builds(p)) != len(builds)]
         if not limited or i in done:
             continue
         if len(targets) == 1 and SOLE_LINK.match(line):
@@ -359,7 +360,7 @@ def guard_links(
             while e > s + 1 and not lines[e - 1].strip():
                 e -= 1
             done.update(range(s, e))
-            builds_in = pages[limited[0]]
+            builds_in = link_builds(limited[0])
             if len(builds_in) == len(builds):
                 continue
             edits.append(_Edit(s, e, [GUARD_OPEN + ",".join(builds_in), *lines[s:e], GUARD_CLOSE]))
@@ -372,7 +373,7 @@ def guard_links(
                     {
                         "owner": owner,
                         "token": "",
-                        "reason": f"link in running text to {p}, which some builds don't publish",
+                        "reason": f"link in running text to {p}, which some builds don't have",
                     }
                 )
     for ed in sorted(edits, key=lambda x: x.start, reverse=True):
@@ -843,6 +844,38 @@ def restore_reuse(
                 )
         if len(published) != len(builds):
             pages[md_rel] = sorted(published)
+    # Which builds have a generated link from page A to page B, as DITA-OT decides it: a reltable
+    # link wherever B is published; a map-tree link (parent, child, family sibling) only where
+    # both pages are in the table of contents. Found by the navigation check on the TPU corpus.
+    all_names = [b.name for b in builds]
+    entry_by_md = {
+        str(Path(str(e.path.relative_to(src))).with_suffix(".md")): e
+        for e in model.topics
+        if e.processing_role != "resource-only"
+    }
+    family = {e.path for e in model.topics if e.collection == "family"}
+
+    def link_rule(a: Any) -> Callable[[str], list[str]]:
+        def builds_for(target_md: str) -> list[str]:
+            b = entry_by_md.get(target_md)
+            if b is None:
+                return all_names
+            a_md = str(Path(str(a.path.relative_to(src))).with_suffix(".md"))
+            published_b = set(pages.get(target_md, all_names))
+            toc_a, toc_b = set(toc_only.get(a_md, all_names)), set(toc_only.get(target_md, all_names))
+            reltable = frozenset((a.path, b.path)) in model.reltable_pairs
+            tree = (
+                b.parent == a.path
+                or a.parent == b.path
+                or (a.parent is not None and a.parent == b.parent and a.parent in family)
+            )
+            if not reltable and not tree:
+                return [n for n in all_names if n in published_b]
+            ok = (published_b if reltable else set()) | ((toc_a & toc_b) if tree else set())
+            return [n for n in all_names if n in ok]
+
+        return builds_for
+
     # Second pass, now that every page's builds are known: write the topics.
     by_build = {b.name: b for b in builds}
     for t in model.topics:
@@ -861,7 +894,7 @@ def restore_reuse(
         lines = apply_conditions(
             lines, [c for c in ledger if c["kind"] == "condition" and c["owner"] == rel], builds, result, rel
         )
-        lines = guard_links(lines, md_rel, pages, builds, by_build, result, rel)
+        lines = guard_links(lines, md_rel, link_rule(t), builds, by_build, result, rel)
         target_dir = (out_dir / md_rel).parent
         rel_includes = {n: os.path.relpath(p, target_dir) for n, p in include_paths.items()}
         lines = apply_tokens(lines, rel, topic_id, by_token, rel_includes, inline_names, result)

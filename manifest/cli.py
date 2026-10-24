@@ -1,14 +1,16 @@
-"""Command line: `manifest inventory tpu/tpu.ditamap`. More commands arrive with each tool."""
+"""Command line: `manifest migrate tpu/tpu.ditamap`, `manifest fix ...`, `manifest rules approve ...`."""
 
 from __future__ import annotations
 
 import argparse
+import datetime as dt
+import json
 import sys
 from pathlib import Path
 
 from manifest import __version__
 from manifest.pipeline import migrate
-from manifest.rules import RuleError, RuleSet, load_rules
+from manifest.rules import Rule, RuleError, RuleSet, load_rules, save_rule
 from manifest.tools.check import CheckError, check_topics
 from manifest.tools.convert import ConvertError, convert_map
 from manifest.tools.inventory import inventory_map
@@ -147,6 +149,67 @@ def _migrate(args: argparse.Namespace) -> int:
     return 0 if r["gate"] == "pass" else 1
 
 
+def _fix(args: argparse.Namespace) -> int:
+    try:  # the agent needs the optional [agent] extra; migrate doesn't
+        from manifest.agent.models import ModelError
+        from manifest.agent.runner import fix_map
+    except ImportError as exc:
+        print(f"error: {exc}. Install the agent extra: pip install 'manifest-dita[agent]'")
+        return 2
+    script = json.loads(Path(args.script).read_text(encoding="utf-8")) if args.script else None
+    try:
+        run = fix_map(
+            Path(args.map),
+            Path(args.out),
+            args.mode,
+            args.model,
+            Path(args.recording) if args.recording else None,
+            Path(args.rules) if args.rules else None,
+            script,
+            args.dita,
+            args.lychee,
+            open_issues=args.open_issues,
+        )
+    except (ModelError, ConvertError, RestoreError, CheckError, LinkError, RuleError, RuntimeError) as exc:
+        print(f"error: {exc}")
+        return 2
+    print(f"{run['map']}: {len(run['failing_before'])} topic(s) failed before the agent ({run['model']})")
+    for s in run["sessions"]:
+        tried = len(s["attempts"])
+        if s["outcome"] == "fixed":
+            print(
+                f"  fixed   {s['topic']}: rule {run['fixed'][s['topic']]['rule']} passed ({tried} attempt(s))"
+            )
+        else:
+            print(f"  review  {s['topic']}: {tried} attempt(s) failed; {run['review'][s['topic']]['file']}")
+    print(
+        f"gate {run['gate'].upper()}. Proposed rules: {args.out}/agent/proposed (approve with "
+        f"`manifest rules approve FILE --by NAME`). Report: {args.out}/report/report.html"
+    )
+    return 0 if run["gate"] == "pass" else 1
+
+
+def _approve(args: argparse.Namespace) -> int:
+    src = Path(args.file)
+    try:
+        rule = Rule.from_dict(json.loads(src.read_text(encoding="utf-8")))
+        if rule.status == "approved":
+            print(f"{rule.id} is already approved")
+            return 0
+        rule.status = "approved"
+        rule.provenance = {
+            **rule.provenance,
+            "approved_by": args.by,
+            "approved_at": dt.datetime.now(dt.UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        }
+        path = save_rule(rule, Path(args.rules))
+    except (OSError, ValueError, KeyError, RuleError) as exc:
+        print(f"error: {exc}")
+        return 2
+    print(f"Approved {rule.id} by {args.by}: {path}. `manifest migrate --rules {args.rules}` now applies it.")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(prog="manifest", description=__doc__)
     p.add_argument("--version", action="version", version=f"manifest {__version__}")
@@ -158,6 +221,36 @@ def main(argv: list[str] | None = None) -> int:
     mig.add_argument("--lychee", default=None, help="path to lychee")
     mig.add_argument("--rules", default=None, help="folder of mapping rules; only approved rules run")
     mig.set_defaults(func=_migrate)
+    fix = sub.add_parser("fix", help="migrate; the agent proposes rules for failing topics; migrate again")
+    fix.add_argument("map", help="path to the root .ditamap")
+    fix.add_argument("--out", default="build", help="output folder")
+    fix.add_argument(
+        "--mode",
+        choices=["live", "replay", "scripted"],
+        default="replay",
+        help="live: Gemini (key in GOOGLE_API_KEY); replay: a recording; scripted: --script",
+    )
+    fix.add_argument("--model", default="gemini-3.8-flash", help="Gemini model in live mode")
+    fix.add_argument("--recording", default=None, help="JSONL: written in live mode, read in replay mode")
+    fix.add_argument("--script", default=None, help="JSON list of steps for scripted mode")
+    fix.add_argument("--rules", default="rules", help="folder of mapping rules; approved rules run first")
+    fix.add_argument("--dita", default=None, help="path to the DITA-OT launcher")
+    fix.add_argument("--lychee", default=None, help="path to lychee")
+    fix.add_argument(
+        "--open-issues",
+        action="store_true",
+        help="also file each review as a GitHub issue (needs GITHUB_TOKEN, GITHUB_REPOSITORY)",
+    )
+    fix.set_defaults(func=_fix)
+    rul = sub.add_parser("rules", help="manage mapping rules")
+    rsub = rul.add_subparsers(dest="rules_command", required=True)
+    app = rsub.add_parser("approve", help="approve a proposed rule so every migration applies it")
+    app.add_argument(
+        "file", help="a proposed rule, e.g. build/agent/proposed/choicetable-to-simpletable.json"
+    )
+    app.add_argument("--by", required=True, help="the writer approving it")
+    app.add_argument("--rules", default="rules", help="the approved-rules folder")
+    app.set_defaults(func=_approve)
     inv = sub.add_parser("inventory", help="count what is in the DITA source (tool 1)")
     inv.add_argument("map", help="path to the root .ditamap")
     inv.add_argument("--out", default="build/inventory.json", help="where to write the inventory JSON")

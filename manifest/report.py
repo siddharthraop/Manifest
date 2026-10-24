@@ -7,6 +7,7 @@ the source, and the design doc's success metrics measured on this run (design do
 A topic is
     Pass    every check passed in every build and nothing needs a writer
     Review  every check passed, but the source has something MANIFEST has no rule for
+    Fixed   every check passes, but only with a rule the agent proposed this run; a writer approves it
     Fail    a check found a difference (each difference is listed, with the check that found it)
 """
 
@@ -28,7 +29,7 @@ SCHEMA_VERSION = "1"
 @dataclass
 class TopicRow:
     topic: str
-    status: str  # pass, review, fail
+    status: str  # pass, fixed, review, fail
     checks: dict[str, str]  # check -> pass / fail
     note: str
     differences: list[dict[str, str]] = field(default_factory=list)
@@ -46,7 +47,12 @@ def build_report(
     check: dict[str, Any],
     links: dict[str, Any],
     versions: dict[str, str],
+    agent: dict[str, Any] | None = None,
+    rules_applied: list[str] | None = None,
 ) -> dict[str, Any]:
+    """agent: what `manifest fix` did this run (fixed and review topics, rules), or None."""
+    agent = agent or {}
+    fixed_by_agent: dict[str, Any] = agent.get("fixed", {})
     published = [t for t in inventory["topics"] if t["processing_role"] == "normal"]
     by_owner_mappings: dict[str, dict[str, int]] = {}
     for m in restore["mappings"]:
@@ -105,6 +111,11 @@ def build_report(
                 f"<{u.get('element', '?')}> line {u.get('line', '?')}: needs a writer" for u in review
             )
         status = "fail" if diffs else ("review" if review else "pass")
+        if status == "pass" and rel in fixed_by_agent:
+            status = "fixed"
+            note += f"; fixed by proposed rule {fixed_by_agent[rel]['rule']}: a writer approves it"
+        elif rel in agent.get("review", {}):
+            note += f"; the agent couldn't fix it: see {agent['review'][rel]['file']}"
         rows.append(TopicRow(rel, status, checks, note, diffs, review))
 
     t_conrefs = sum(t["totals"]["conrefs"] for t in inventory["topics"] if t["processing_role"] == "normal")
@@ -141,8 +152,7 @@ def build_report(
                 "navigation compared with DITA-OT"},
         {"metric": "Topics passed without a writer", "target": "Set from the first run",
          "measured": f"{passed_first}/{len(rows)}", "how": "Topics with no difference and no review item"},
-        {"metric": "Fixes approved", "target": "Tracked", "measured": "n/a",
-         "how": "Gemini proposes fixes from build step 3; none were needed or proposed in this run"},
+        fixes_metric(agent, rules_applied or []),
     ]  # fmt: skip
 
     review_items = [
@@ -159,6 +169,7 @@ def build_report(
         "summary": {
             "topics": len(rows),
             "passed": passed_first,
+            "fixed": sum(r.status == "fixed" for r in rows),
             "review": sum(r.status == "review" for r in rows),
             "failed": sum(r.status == "fail" for r in rows),
             "builds": check["builds"],
@@ -167,7 +178,26 @@ def build_report(
         "topics": [r.__dict__ for r in rows],
         "review_items": review_items,
         "findings": restore.get("findings", []),
+        "agent": agent or None,
         "inputs": {"tokens_carried": convert["totals"]["tokens"], "includes": convert["totals"]["includes"]},
+    }
+
+
+def fixes_metric(agent: dict[str, Any], rules_applied: list[str]) -> dict[str, str]:
+    approved = agent.get("approved_rules", rules_applied)
+    proposed = len(agent.get("fixed", {}))
+    sent = len(agent.get("review", {}))
+    if not agent:
+        return {"metric": "Fixes approved", "target": "Tracked", "measured": f"{len(approved)} approved",
+                "how": (f"Approved rules applied: {', '.join(approved)}. " if approved else "No rules applied. ")
+                + "No agent ran (`manifest migrate`)."}  # fmt: skip
+    return {
+        "metric": "Fixes approved",
+        "target": "Tracked",
+        "measured": f"{len(approved)} approved, {proposed} proposed",
+        "how": f"{len(approved)} approved rule(s) applied; the agent ({agent.get('model', '?')}) proposed "
+        f"{proposed} rule(s) that pass every check and sent {sent} topic(s) to a writer. "
+        "Proposed rules apply only after `manifest rules approve`.",
     }
 
 
@@ -197,6 +227,7 @@ table{width:100%;border-collapse:collapse;font-size:14px}caption{text-align:left
 font-size:13px;padding-bottom:8px}th{background:var(--paper-deep);text-align:left;font-weight:600;color:var(--ink)}
 th,td{padding:8px 10px;border-bottom:1px solid var(--rule);vertical-align:top}tbody tr:hover{background:var(--paper-hover)}
 .st{white-space:nowrap;font-weight:600}.st.pass{color:var(--ink)}.st.fail{color:var(--stamp)}
+.st.fixed span{color:var(--ink);background:var(--paper-deep);outline:1px dashed var(--stamp-tint);padding:0 6px;border-radius:var(--radius)}
 .st.review span{color:var(--ink);outline:1px solid var(--stamp-tint);padding:0 6px;border-radius:var(--radius)}
 .gate{display:inline-block;padding:4px 10px;border-radius:var(--radius);font-weight:600}
 .gate.pass{background:var(--ink);color:var(--paper)}.gate.fail{background:var(--stamp);color:var(--paper)}
@@ -205,7 +236,7 @@ a{color:var(--ink);text-decoration-color:var(--stamp-tint)}a:focus-visible{outli
 @media (max-width:640px){.topics th:nth-child(n+3):nth-child(-n+6),.topics td:nth-child(n+3):nth-child(-n+6){display:none}
 table{font-size:13px}th,td{padding:8px 6px}td{overflow-wrap:anywhere}}
 """
-ICON = {"pass": "✓ Pass", "fail": "✗ Fail", "review": "◇ Review"}
+ICON = {"pass": "✓ Pass", "fixed": "✎ Fixed", "fail": "✗ Fail", "review": "◇ Review"}
 GUIDANCE = {
     "possible-typed-copy": "A value typed in the source equals a key's value. If it means the same thing, "
     "replace it with the key, so the value is changed in one place. Each place is listed in report.json.",
@@ -259,10 +290,11 @@ def render_html(r: dict[str, Any]) -> str:
 <h1>Migration report: <span class="mono">{_e(r["map"])}</span></h1>
 <p class="meta">MANIFEST {_e(r["manifest"])} · {_e(versions)} · builds: {_e(", ".join(s["builds"]))}</p>
 <p><span class="gate {r["gate"]}">{ICON[r["gate"]]} gate</span>
- {s["review"]} topic(s) need a writer; {s["failed"]} failed.</p>
+ {s["review"]} topic(s) need a writer; {s.get("fixed", 0)} fixed by a rule awaiting approval; {s["failed"]} failed.</p>
 <div class="band" role="list">
 <div role="listitem"><b>{s["topics"]}</b><span>topics</span></div>
 <div role="listitem"><b>{s["passed"]}</b><span>passed, no writer needed</span></div>
+<div role="listitem"><b>{s.get("fixed", 0)}</b><span>fixed by a proposed rule</span></div>
 <div role="listitem"><b>{s["review"]}</b><span>sent to a writer</span></div>
 <div role="listitem"><b>{s["failed"]}</b><span>failed a check</span></div>
 <div role="listitem"><b>{len(s["builds"])}</b><span>builds compared with DITA-OT</span></div></div>

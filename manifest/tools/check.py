@@ -255,9 +255,11 @@ def check_topics(
     ditavals: list[Path] | None = None,
     only_builds: list[str] | None = None,
     reuse_dita_html: bool = False,
+    dita_html_from: Path | None = None,
 ) -> CheckResult:
     """only_builds limits the run (default: every build); reuse_dita_html skips DITA-OT when its
-    output for a build is already in out_dir (the source didn't change)."""
+    output for a build is already in out_dir (the source didn't change); dita_html_from reads
+    DITA-OT's output from another check folder instead (the agent's quick re-checks)."""
     model = load_map(map_path)
     src = model.path.parent
     dita_cmd = find_dita(dita)
@@ -276,7 +278,9 @@ def check_topics(
 
     for b in builds:
         d_out, s_out = out_dir / "dita-html" / b.name, out_dir / "sphinx-html" / b.name
-        if not (reuse_dita_html and (d_out / "index.html").exists()):
+        if dita_html_from is not None:
+            d_out = dita_html_from / "dita-html" / b.name
+        elif not (reuse_dita_html and (d_out / "index.html").exists()):
             build_dita_html(dita_cmd, model.path, by_name.get(b.name) if b.ditaval else None, d_out)
         warnings[b.name] = build_sphinx_html(myst_dir, b.name, s_out)
         d_pages = {str(p.relative_to(d_out).with_suffix("")) for p in d_out.rglob("topics/**/*.html")}

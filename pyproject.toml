@@ -14,6 +14,7 @@ dependencies = ["lxml>=5.3", "markdown-it-py>=3"]
 
 [project.optional-dependencies]
 sphinx = ["sphinx>=8", "myst-parser>=4", "sphinx-substitution-extensions>=2026.10"]
+agent = ["google-adk>=2.13,<3", "google-genai>=2.33"]
 dev = ["pytest>=8", "mypy>=1.10", "ruff>=0.6", "lxml-stubs>=0.5"]
 
 [project.scripts]

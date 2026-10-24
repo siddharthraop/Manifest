@@ -7,8 +7,8 @@
     build/links/              tool 5, links.json, redirects.json
     build/report/             report.json, report.html
 
-Every step is deterministic. The agent (build step 3) will sit between the checks and the
-report, proposing fixes for topics that fail; this pipeline is what it calls.
+Every step is deterministic. `manifest fix` (manifest/agent) runs this pipeline, lets the agent
+propose rules for topics that fail, and runs it again with those rules.
 """
 
 from __future__ import annotations
@@ -40,8 +40,9 @@ def migrate(
     dita: str | None = None,
     lychee: str | None = None,
     rules: RuleSet | None = None,
+    agent: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """rules: the approved mapping rules to apply (default: none)."""
+    """rules: the mapping rules to apply (default: none). agent: `manifest fix`'s results, for the report."""
     dita_cmd = find_dita(dita)
     inv = inventory_map(map_path)
     inv.write(out / "inventory.json")
@@ -69,6 +70,8 @@ def migrate(
         load(out / "check" / "check.json"),
         load(out / "links" / "links.json"),
         versions,
+        agent,
+        [r.id for r in rules.rules] if rules else [],
     )
     write_report(report, out / "report")
     return report

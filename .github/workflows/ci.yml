@@ -70,7 +70,7 @@ jobs:
           curl -sSL -o /tmp/lychee.tgz https://github.com/lycheeverse/lychee/releases/download/lychee-v0.24.2/lychee-x86_64-unknown-linux-gnu.tar.gz
           mkdir -p ~/lychee && tar xzf /tmp/lychee.tgz -C ~/lychee
           echo "LYCHEE=$(find ~/lychee -name lychee -type f | head -1)" >> "$GITHUB_ENV"
-      - run: pip install -e '.[dev,sphinx]'
+      - run: pip install -e '.[dev,sphinx,agent]'
       - run: ruff check .
       - run: ruff format --check manifest tests
       - run: mypy

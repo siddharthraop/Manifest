@@ -45,7 +45,8 @@ Claude never handles Google Cloud credentials, and no project ID goes in code.
 5. **One shared image repository with a keep-latest cleanup policy**, which
    holds Artifact Registry under 20% of its 0.5 GB allowance.
 
-6. **Cost guards.** A $5 budget measured before credits, so alerts reflect real
+6. **Cost guards.** A budget of about USD 5 (SGD 6.40 on this SGD billing account;
+   the amount must be in the account's currency) measured before credits, so alerts reflect real
    usage while trial credit pays for it; a BigQuery `QueryUsagePerDay` quota of
    6 GiB (186 GiB a month, under 20% of 1 TiB). Cloud Run has no quota for this,
    so its ceiling is held by `max-instances=1`, no minimum instances, and

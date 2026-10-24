@@ -77,7 +77,12 @@ SECRET_ID="gemini-api-key"
 RUNTIME_SA_NAME="manifest-run"
 BUCKET="gs://${PROJECT}-manifest-reports"
 BUDGET_NAME="tech-writing-portfolio-5usd"
-BUDGET_AMOUNT="5USD"
+# The budget amount must be in the billing account's own currency (Budget API:
+# "it must match the currency of the billing account"), so the value is chosen
+# after reading the account's currency in preflight. USD 5 ~= SGD 6.40 at
+# 1 USD = 1.278 SGD (Wise mid-market, 24 Oct 2026). Override with BUDGET_AMOUNT=7.00SGD.
+# (A case statement, not an associative array: macOS ships bash 3.2.)
+budget_for() { case "$1" in USD) echo "5USD" ;; SGD) echo "6.40SGD" ;; *) echo "" ;; esac; }
 
 # 20% of the BigQuery Free Tier (1 TiB/month) is ~205 GiB/month. Custom quotas
 # are per day, so 6 GiB/day x 31 days = 186 GiB, safely under the ceiling.
@@ -98,9 +103,16 @@ PROJECT_NUMBER="$(gcloud projects describe "$PROJECT" --format='value(projectNum
 BILLING_ACCOUNT="$(gcloud billing projects describe "$PROJECT" --format='value(billingAccountName)')"
 BILLING_ACCOUNT="${BILLING_ACCOUNT#billingAccounts/}"
 [[ -n "$BILLING_ACCOUNT" ]] || { echo "Project $PROJECT has no billing account linked"; exit 1; }
+BILLING_CURRENCY="$(gcloud billing accounts describe "$BILLING_ACCOUNT" --format='value(currencyCode)')"
+if [[ -z "${BUDGET_AMOUNT:-}" ]]; then
+  BUDGET_AMOUNT="$(budget_for "$BILLING_CURRENCY")"
+  [[ -n "$BUDGET_AMOUNT" ]] || { echo "Billing currency is '$BILLING_CURRENCY'. Re-run with BUDGET_AMOUNT=<amount>${BILLING_CURRENCY} (about USD 5)."; exit 1; }
+fi
+[[ "$BUDGET_AMOUNT" == *"$BILLING_CURRENCY" ]] || { echo "BUDGET_AMOUNT must end in $BILLING_CURRENCY"; exit 1; }
 info "Account:         $ACTIVE_ACCOUNT"
 info "Project:         $PROJECT ($PROJECT_NUMBER)"
-info "Billing account: $BILLING_ACCOUNT"
+info "Billing account: $BILLING_ACCOUNT ($BILLING_CURRENCY)"
+info "Budget:          $BUDGET_AMOUNT a month (about USD 5)"
 info "Region:          $REGION"
 if [[ "$DRY_RUN" != "1" ]]; then
   read -r -p "   Apply to this project? [y/N] " reply

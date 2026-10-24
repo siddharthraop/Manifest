@@ -9,6 +9,7 @@ from pathlib import Path
 from manifest import __version__
 from manifest.tools.convert import ConvertError, convert_map
 from manifest.tools.inventory import inventory_map
+from manifest.tools.restore import RestoreError, restore_reuse
 
 
 def _inventory(args: argparse.Namespace) -> int:
@@ -52,6 +53,32 @@ def _convert(args: argparse.Namespace) -> int:
     return 0 if res.ok else 1
 
 
+def _restore(args: argparse.Namespace) -> int:
+    try:
+        res = restore_reuse(Path(args.map), Path(args.convert), Path(args.out))
+    except RestoreError as exc:
+        print(f"error: {exc}")
+        return 2
+    t = res.totals()
+    print(
+        f"Restored to MyST: {t['keys']} keys -> substitutions ({t['substitutions_defined']} defined), "
+        f"{t['conrefs_as_includes']} conrefs -> includes ({t['include_files']} files), "
+        f"{t['conrefs_as_substitutions']} inline conrefs -> substitutions, "
+        f"{t['conditions']} conditions -> only blocks, {t['ids']} IDs -> anchors "
+        f"({t['ids_dropped']} shared IDs dropped, as DITA-OT HTML5 does)"
+    )
+    print(f"Builds: {', '.join(b['name'] for b in res.builds)}")
+    for u in res.unhandled:
+        print(f"  unhandled: {u['owner']}: {u['reason']}")
+    kinds: dict[str, int] = {}
+    for f in res.findings:
+        kinds[f["kind"]] = kinds.get(f["kind"], 0) + 1
+    for kind, n in sorted(kinds.items()):
+        print(f"  finding in the source: {n} x {kind} (details in _manifest/restore.json)")
+    print(f"Wrote {args.out} (Sphinx project)")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(prog="manifest", description=__doc__)
     p.add_argument("--version", action="version", version=f"manifest {__version__}")
@@ -67,6 +94,13 @@ def main(argv: list[str] | None = None) -> int:
         "--dita", default=None, help="path to the DITA-OT launcher (default: $DITA_HOME or PATH)"
     )
     conv.set_defaults(func=_convert)
+    rest = sub.add_parser(
+        "restore", help="turn placeholders into MyST includes, substitutions, only blocks (tool 3)"
+    )
+    rest.add_argument("map", help="path to the root .ditamap")
+    rest.add_argument("--convert", default="build/convert", help="convert output folder")
+    rest.add_argument("--out", default="build/myst", help="Sphinx project to write")
+    rest.set_defaults(func=_restore)
     args = p.parse_args(argv)
     result: int = args.func(args)
     return result

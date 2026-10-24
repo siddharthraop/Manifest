@@ -72,7 +72,19 @@ IDS_KEPT_BY_DITA_OT = {"section", "example"}
 # renders nothing. Map the element to the child to create.
 CONTAINER_CHILD = {"step": "cmd", "substep": "cmd", "ul": "li", "ol": "li", "sl": "sli", "steps": "step"}
 
-UNSUPPORTED_ELEMENTS = {"object"}  # no Markdown equivalent; see the US-03 review rule
+UNSUPPORTED_ELEMENTS = {"object"}
+
+# Preformatted elements. DITA-OT's Markdown writer emits inline markup inside them as literal
+# Markdown (<varname>TPU_NAME</varname> becomes *TPU\_NAME* inside a code fence), so inline
+# elements other than key references are flattened to their text first. The HTML5 text is the
+# same either way.
+PREFORMATTED = {
+    "codeblock",
+    "pre",
+    "screen",
+    "msgblock",
+    "lines",
+}  # no Markdown equivalent; see the US-03 review rule
 
 
 @dataclass
@@ -166,8 +178,21 @@ def _in_link_text(el: etree._Element, root: etree._Element) -> bool:
     return any(p is not None and any(a is p for a in el.iterancestors()) for p in parts)
 
 
+def _flatten_preformatted(root: etree._Element) -> None:
+    for pre in [e for e in root.iter() if isinstance(e.tag, str) and str(e.tag) in PREFORMATTED]:
+        for child in list(pre.iter()):
+            if child is pre or not isinstance(child.tag, str) or child.get("keyref"):
+                continue
+            if child.getparent() is None or any(a.get("keyref") for a in child.iterancestors()):
+                continue
+            if any(isinstance(g.tag, str) and g.get("keyref") for g in child.iter() if g is not child):
+                continue  # keeps a nested key reference; leave the wrapper
+            _replace_with_text(child, "".join(str(t) for t in child.itertext()))
+
+
 def tokenize(root: etree._Element, ledger: Ledger, owner: str) -> None:
     """Replace reuse, conditions and droppable IDs in a parsed topic with tokens, in place."""
+    _flatten_preformatted(root)
     in_metadata: set[etree._Element] = set()
     for el in list(root.iter()):
         if not isinstance(el.tag, str) or el in in_metadata:

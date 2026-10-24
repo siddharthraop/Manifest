@@ -42,7 +42,7 @@ class RuleError(ValueError):
 @dataclass
 class Rule:
     id: str
-    match: str  # the element the rule rewrites, for people and for the report
+    match: str  # the element(s) the rule rewrites, space-separated, for people and for the report
     description: str
     xslt: str  # one or more <xsl:template> elements
     status: str = "proposed"
@@ -122,7 +122,8 @@ class RuleSet:
         """How many elements each rule's match pattern selects in this topic."""
         counts: dict[str, int] = {}
         for r in self.rules:
-            n = sum(1 for el in root.iter() if isinstance(el.tag, str) and str(el.tag) == r.match)
+            names = set(r.match.split())
+            n = sum(1 for el in root.iter() if isinstance(el.tag, str) and str(el.tag) in names)
             if n:
                 counts[r.id] = n
         return counts

@@ -7,26 +7,32 @@ lost content, and sends anything it can't fix to a technical writer.
 
 ## Status
 
-**The engine is built and passes on the sample map.** `manifest migrate` runs the
-five deterministic tools and writes a migration report. The Gemini agent, the
-Cloud Run runtime, the console and the DITA help set are the next build steps.
+**The engine and the fix agent are built and pass on the sample map.**
+`manifest migrate` runs the five deterministic tools and writes a migration
+report. `manifest fix` adds the Gemini agent: for each topic that fails a check
+it proposes a mapping rule, the checks decide whether the rule works, and after
+two failed fixes the topic goes to a writer. The Cloud Run runtime, the console
+and the DITA help set are the next build steps.
 
-On `corpus/tpu/tpu.ditamap` (23 published topics, 5 builds: unfiltered and one
-per DITAVAL file):
+On `corpus/tpu/tpu.ditamap` (24 published topics, 5 builds: unfiltered and one
+per DITAVAL file), with one approved rule:
 
 | Design doc §7 metric | Target | Measured |
 | --- | --- | --- |
 | Unreported losses | 0 | 0 |
-| Topics checked | 100% | 100% (112 comparisons with DITA-OT HTML5) |
-| Reuse kept | 100% of mapped features | 100% (11 conrefs, 169 key references) |
-| IDs kept | 100% | 100% (51 IDs, in DITA-OT's anchor form) |
-| Broken links | 0 | 0 (3,110 links; 112 old URLs) |
-| Topics passed without a writer | Set from the first run | 22 of 23 |
+| Topics checked | 100% | 100% (114 comparisons with DITA-OT HTML5) |
+| Reuse kept | 100% of mapped features | 100% (12 conrefs, 168 key references) |
+| IDs kept | 100% | 100% (53 IDs, in DITA-OT's anchor form) |
+| Broken links | 0 | 0 (3,187 links; 114 old URLs) |
+| Topics passed without a writer | Set from the first run | 23 of 24 |
+| Fixes approved | Tracked | 1 approved |
 
-The one topic for a writer has an `<object>` video that DITA-OT's Markdown
-writer drops without a warning. On the way, the checks found four losses that a
-plain DITA-OT conversion ships, and two issues in the source map. See
-[the ADRs](docs/adr/).
+With no rules, one topic fails: a task with a `<choicetable>` and a
+`<hazardstatement>`, which DITA-OT's Markdown writer mangles. That is the
+agent's job ([ADR 0007](docs/adr/0007-the-fix-agent.md)). The one topic for a
+writer has an `<object>` video that DITA-OT's Markdown writer drops without a
+warning. On the way, the checks found four losses that a plain DITA-OT
+conversion ships, and two issues in the source map. See [the ADRs](docs/adr/).
 
 ## Quick start
 
@@ -44,6 +50,22 @@ manifest migrate corpus/tpu/tpu.ditamap
 Open `build/report/report.html` for the report, and `build/myst/` for the
 migrated Sphinx project. Each tool also runs on its own: `manifest inventory`,
 `convert`, `restore`, `check` and `links`.
+
+### The fix agent
+
+```sh
+pip install -e '.[sphinx,agent]'
+# live: Gemini, with the key read from Secret Manager for this one command, every response recorded
+GOOGLE_API_KEY="$(gcloud secrets versions access latest --secret=gemini-api-key)" \
+  manifest fix corpus/tpu/tpu.ditamap --mode live --recording recordings/tpu.jsonl
+# replay: the same run from the recording, with no key and no cost
+manifest fix corpus/tpu/tpu.ditamap --mode replay --recording recordings/tpu.jsonl
+# a writer approves a proposed rule; from then on migrate applies it without Gemini
+manifest rules approve build/agent/proposed/RULE.json --by "Your Name"
+```
+
+Proposed rules are in `build/agent/proposed/`, review issues in
+`build/agent/reviews/`, and every attempt in `build/agent/run.json`.
 
 ## The problem
 

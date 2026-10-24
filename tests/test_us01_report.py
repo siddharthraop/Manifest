@@ -38,6 +38,7 @@ def test_the_tpu_map_passes_with_one_topic_for_a_writer(migrated: tuple[dict[str
     assert report["summary"] | {"builds": None} == {
         "topics": 24,
         "passed": 23,
+        "fixed": 0,
         "review": 1,
         "failed": 0,
         "builds": None,

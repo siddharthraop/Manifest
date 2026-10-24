@@ -50,16 +50,36 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.13"
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+      - name: DITA-OT 4.4 (cached)
+        id: dita-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/dita-ot-4.4
+          key: dita-ot-4.4
+      - if: steps.dita-cache.outputs.cache-hit != 'true'
+        run: |
+          curl -sSL -o /tmp/dita.zip https://github.com/dita-ot/dita-ot/releases/download/4.4/dita-ot-4.4.zip
+          unzip -q /tmp/dita.zip -d ~
+      - run: echo "DITA_HOME=$HOME/dita-ot-4.4" >> "$GITHUB_ENV"
       - run: pip install -e '.[dev]'
       - run: ruff check .
       - run: ruff format --check manifest tests
       - run: mypy
       - run: pytest -q
       - run: manifest inventory corpus/tpu/tpu.ditamap --out build/inventory.json
+      - run: manifest convert corpus/tpu/tpu.ditamap --out build/convert
       - uses: actions/upload-artifact@v4
         with:
-          name: inventory
-          path: build/inventory.json
+          name: engine-output
+          path: |
+            build/inventory.json
+            build/convert/convert.json
+            build/convert/ledger.json
+            build/convert/markdown
 
   wif-smoke:
     name: Keyless login to Google Cloud

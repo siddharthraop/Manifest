@@ -47,6 +47,7 @@ class TopicEntry:
     order: int
     processing_role: str  # "normal" or "resource-only"
     conditions: dict[str, tuple[str, ...]] = field(default_factory=dict)  # cascaded from the map
+    parent: Path | None = None  # the topic this one sits under in the map, if any
 
 
 @dataclass
@@ -55,6 +56,9 @@ class MapModel:
     topics: list[TopicEntry]
     keys: dict[str, str]  # key name -> text value
     reltable_rows: int
+    # Topics a relationship table references, with the conditions on that reference. DITA-OT
+    # publishes a topic if any visible reference reaches it, even one filtered out of the TOC.
+    reltable_refs: list[tuple[Path, dict[str, tuple[str, ...]]]] = field(default_factory=list)
 
 
 def _conditions(el: etree._Element, inherited: dict[str, tuple[str, ...]]) -> dict[str, tuple[str, ...]]:
@@ -81,15 +85,35 @@ def load_map(map_path: Path) -> MapModel:
     topics: list[TopicEntry] = []
     keys: dict[str, str] = {}
     seen: set[Path] = set()
+    relrefs: list[tuple[Path, dict[str, tuple[str, ...]]]] = []
     rows = 0
 
-    def walk(el: etree._Element, base: Path, role: str, cond: dict[str, tuple[str, ...]]) -> None:
+    def walk(
+        el: etree._Element,
+        base: Path,
+        role: str,
+        cond: dict[str, tuple[str, ...]],
+        parent: Path | None = None,
+    ) -> None:
         nonlocal rows
         for child in el:
             if not isinstance(child.tag, str):
                 continue
             if child.tag == "reltable":
                 rows += sum(1 for _ in child.iter("relrow"))
+                for ref in child.iter("topicref"):
+                    href = ref.get("href")
+                    if href and is_local(href) and href.split("#")[0].endswith(".dita"):
+                        rcond = cond
+                        for anc in reversed([ref, *ref.iterancestors()]):
+                            if anc is child:
+                                continue
+                            rcond = (
+                                _conditions(anc, rcond)
+                                if anc.tag in ("relrow", "relcell", "topicref")
+                                else rcond
+                            )
+                        relrefs.append(((base / href.split("#")[0]).resolve(), rcond))
                 continue
             href = child.get("href")
             child_role = child.get("processing-role") or role
@@ -99,19 +123,21 @@ def load_map(map_path: Path) -> MapModel:
                 sub_tree = parse(sub)
                 keys.update({k: v for k, v in _keydefs(sub_tree).items() if k not in keys})
                 if child.get("type") != "subjectScheme":
-                    walk(sub_tree.getroot(), sub.parent, child_role, child_cond)
+                    walk(sub_tree.getroot(), sub.parent, child_role, child_cond, parent)
                 continue
             if child.tag == "topicref" and href and is_local(href) and href.split("#")[0].endswith(".dita"):
                 p = (base / href.split("#")[0]).resolve()
                 if p not in seen:
                     seen.add(p)
-                    topics.append(TopicEntry(p, len(topics), child_role, child_cond))
-            walk(child, base, child_role, child_cond)
+                    topics.append(TopicEntry(p, len(topics), child_role, child_cond, parent))
+                walk(child, base, child_role, child_cond, p)
+                continue
+            walk(child, base, child_role, child_cond, parent)
 
     root_tree = parse(map_path)
     keys.update(_keydefs(root_tree))
     walk(root_tree.getroot(), map_path.parent, "normal", {})
-    return MapModel(map_path, topics, keys, rows)
+    return MapModel(map_path, topics, keys, rows, relrefs)
 
 
 def iter_body(root: etree._Element) -> Iterator[etree._Element]:

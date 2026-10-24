@@ -65,13 +65,21 @@ jobs:
           curl -sSL -o /tmp/dita.zip https://github.com/dita-ot/dita-ot/releases/download/4.4/dita-ot-4.4.zip
           unzip -q /tmp/dita.zip -d ~
       - run: echo "DITA_HOME=$HOME/dita-ot-4.4" >> "$GITHUB_ENV"
-      - run: pip install -e '.[dev]'
+      - run: pip install -e '.[dev,sphinx]'
       - run: ruff check .
       - run: ruff format --check manifest tests
       - run: mypy
       - run: pytest -q
       - run: manifest inventory corpus/tpu/tpu.ditamap --out build/inventory.json
       - run: manifest convert corpus/tpu/tpu.ditamap --out build/convert
+      - run: manifest restore corpus/tpu/tpu.ditamap --convert build/convert --out build/myst
+      - name: Build the MyST site for every DITAVAL (warnings are errors)
+        run: |
+          python -m sphinx -b html -W -q build/myst build/site/unfiltered
+          for f in corpus/tpu/filters/*.ditaval; do
+            b=$(basename "$f" .ditaval)
+            python -m sphinx -b html -W -q -t ditaval -t "$b" build/myst "build/site/$b"
+          done
       - uses: actions/upload-artifact@v4
         with:
           name: engine-output
@@ -80,6 +88,8 @@ jobs:
             build/convert/convert.json
             build/convert/ledger.json
             build/convert/markdown
+            build/myst
+            build/site
 
   wif-smoke:
     name: Keyless login to Google Cloud

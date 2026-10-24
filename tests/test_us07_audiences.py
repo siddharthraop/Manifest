@@ -17,7 +17,7 @@ def test_text_matches_dita_ot_for_every_ditaval(migrated: tuple[dict[str, Any], 
     _, out = migrated
     check = load(out / "check" / "check.json")
     assert check["builds"] == ["unfiltered", "tpu7x", "v5e", "v5p", "v6e"]
-    assert check["ok"] and check["totals"]["differences"] == 0 and check["totals"]["comparisons"] == 112
+    assert check["ok"] and check["totals"]["differences"] == 0 and check["totals"]["comparisons"] == 114
 
 
 @needs_toolchain

@@ -18,7 +18,6 @@ from __future__ import annotations
 
 import difflib
 import json
-import re
 import shutil
 import subprocess
 import sys
@@ -45,7 +44,6 @@ STRUCTURE = {
     "images": "self::img",
     "definition terms": "self::dt",
 }
-DITA_ID = r"^{tid}(__[A-Za-z0-9_.:-]+?)?$"
 MAX_DIFFS = 20
 
 
@@ -65,6 +63,7 @@ class Difference:
 class TopicBuildResult:
     build: str
     differences: list[Difference] = field(default_factory=list)
+    anchors: list[str] = field(default_factory=list)  # source anchors DITA-OT published in this build
 
     @property
     def ok(self) -> bool:
@@ -159,7 +158,8 @@ def _content(page: Path, side: str) -> html.HtmlElement:
         if side == "dita"
         else f".//*[contains(concat(' ',@class,' '),' {NAV_CLASS} ')]|.//*[contains(@class,'headerlink')]"
     )
-    for bad in el.xpath(drop + "|.//script|.//style"):
+    # Inline SVG icons (DITA-OT puts one in each hazard statement) carry metadata, not text.
+    for bad in el.xpath(drop + "|.//script|.//style|.//*[local-name()='svg']"):
         bad.drop_tree()
     return el
 
@@ -215,7 +215,21 @@ def compare_text(a: list[str], b: list[str]) -> list[Difference]:
     return diffs
 
 
-def compare_topic(dita_page: Path, myst_page: Path, topic_id: str) -> list[Difference]:
+def source_anchors(topic: Path) -> set[str]:
+    """The anchors DITA-OT HTML5 derives from IDs in the source: topicid and topicid__elemid.
+    IDs it generates itself (table cells, property headers) aren't source anchors."""
+    root = parse(topic).getroot()
+    tid = root.get("id") or ""
+    out = {tid}
+    for el in root.iter():
+        if isinstance(el.tag, str) and el is not root and el.get("id"):
+            if any(str(a.tag) in ("prolog", "topicmeta") for a in el.iterancestors()):
+                continue
+            out.add(f"{tid}__{el.get('id')}")
+    return out
+
+
+def compare_topic(dita_page: Path, myst_page: Path, anchors: set[str]) -> tuple[list[Difference], list[str]]:
     d, m = _content(dita_page, "dita"), _content(myst_page, "myst")
     diffs = compare_text(text_of(d), text_of(m))[:MAX_DIFFS]
     sd, sm = structure_of(d), structure_of(m)
@@ -224,14 +238,13 @@ def compare_topic(dita_page: Path, myst_page: Path, topic_id: str) -> list[Diffe
             diffs.append(
                 Difference("structure", f"{k}: DITA-OT {sd[k]}, Sphinx {sm[k]}", str(sd[k]), str(sm[k]))
             )
-    pattern = re.compile(DITA_ID.format(tid=re.escape(topic_id)))
-    wanted = {i for i in ids_of(d) if pattern.match(i) and "__entry__" not in i}
-    missing = sorted(wanted - ids_of(html.parse(str(myst_page)).getroot()))
+    wanted = sorted(ids_of(d) & anchors)  # in this build, as DITA-OT published them
+    missing = sorted(set(wanted) - ids_of(html.parse(str(myst_page)).getroot()))
     if missing:
         diffs.append(
             Difference("ids", f"{len(missing)} anchor(s) missing: {', '.join(missing)}", ", ".join(missing))
         )
-    return diffs
+    return diffs, wanted
 
 
 def check_topics(
@@ -257,7 +270,7 @@ def check_topics(
 
     published = [t for t in model.topics if t.processing_role != "resource-only"]
     results = {str(t.path.relative_to(src)): TopicResult(str(t.path.relative_to(src))) for t in published}
-    ids = {str(t.path.relative_to(src)): parse(t.path).getroot().get("id") or "" for t in published}
+    anchors = {str(t.path.relative_to(src)): source_anchors(t.path) for t in published}
     page_diffs: dict[str, list[Difference]] = {}
     warnings: dict[str, int] = {}
 
@@ -285,7 +298,9 @@ def check_topics(
             if page not in s_pages:
                 tb.differences.append(Difference("pages", "page missing from the Sphinx build"))
             else:
-                tb.differences = compare_topic(d_out / f"{page}.html", s_out / f"{page}.html", ids[rel])
+                tb.differences, tb.anchors = compare_topic(
+                    d_out / f"{page}.html", s_out / f"{page}.html", anchors[rel]
+                )
             res.builds.append(tb)
 
     result = CheckResult(

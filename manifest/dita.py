@@ -9,6 +9,7 @@ from __future__ import annotations
 from collections.abc import Iterator
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Any
 
 from lxml import etree
 
@@ -173,11 +174,14 @@ def iter_body(root: etree._Element) -> Iterator[etree._Element]:
         yield el
 
 
-def find_by_id(path: Path, topic_id: str | None, elem_id: str | None) -> etree._Element | None:
-    """Resolve the fragment of a DITA href inside a topic file."""
+def find_by_id(
+    path: Path, topic_id: str | None, elem_id: str | None, rules: Any = None
+) -> etree._Element | None:
+    """Resolve the fragment of a DITA href inside a topic file (after `rules`, a RuleSet, if given)."""
     if not path.exists():
         return None
-    root = parse(path).getroot()
+    tree = parse(path)
+    root = (rules.apply(tree) if rules is not None else tree).getroot()
     if topic_id and root.get("id") != topic_id:
         nested = [t for t in root.iter() if isinstance(t.tag, str) and t.get("id") == topic_id]
         if not nested:

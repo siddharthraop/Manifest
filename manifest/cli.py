@@ -8,6 +8,7 @@ from pathlib import Path
 
 from manifest import __version__
 from manifest.pipeline import migrate
+from manifest.rules import RuleError, RuleSet, load_rules
 from manifest.tools.check import CheckError, check_topics
 from manifest.tools.convert import ConvertError, convert_map
 from manifest.tools.inventory import inventory_map
@@ -128,8 +129,9 @@ def _links(args: argparse.Namespace) -> int:
 
 def _migrate(args: argparse.Namespace) -> int:
     try:
-        r = migrate(Path(args.map), Path(args.out), args.dita, args.lychee)
-    except (ConvertError, RestoreError, CheckError, LinkError, RuntimeError) as exc:
+        rules = RuleSet(load_rules(Path(args.rules))) if args.rules else None
+        r = migrate(Path(args.map), Path(args.out), args.dita, args.lychee, rules)
+    except (ConvertError, RestoreError, CheckError, LinkError, RuleError, RuntimeError) as exc:
         print(f"error: {exc}")
         return 2
     s = r["summary"]
@@ -154,6 +156,7 @@ def main(argv: list[str] | None = None) -> int:
     mig.add_argument("--out", default="build", help="output folder")
     mig.add_argument("--dita", default=None, help="path to the DITA-OT launcher")
     mig.add_argument("--lychee", default=None, help="path to lychee")
+    mig.add_argument("--rules", default=None, help="folder of mapping rules; only approved rules run")
     mig.set_defaults(func=_migrate)
     inv = sub.add_parser("inventory", help="count what is in the DITA source (tool 1)")
     inv.add_argument("map", help="path to the root .ditamap")

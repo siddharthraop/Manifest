@@ -28,6 +28,7 @@ from lxml import etree
 
 from manifest.dita import find_by_id, load_map, parse, split_href
 from manifest.placeholders import TOKEN, Entry, Ledger, tokenize
+from manifest.rules import RuleSet
 
 INCLUDES_DIR = "_manifest_includes"
 DITA_OT_FORMAT = "markdown"  # not markdown_github, which drops more (design doc §5.2)
@@ -70,6 +71,7 @@ class ConvertResult:
     files: list[FileCheck]
     includes: dict[str, str]  # include id -> conref target (normalised)
     ledger: list[dict[str, Any]]
+    rules_applied: list[dict[str, Any]] = field(default_factory=list)
 
     @property
     def ok(self) -> bool:
@@ -118,10 +120,12 @@ def dita_ot_version(dita: str) -> str:
     return m.group(1) if m else "unknown"
 
 
-def _write(tree: etree._ElementTree, path: Path) -> None:
+def _write(tree: etree._ElementTree, path: Path, doctype: str | None = None) -> None:
+    """Write a working-copy topic. `doctype`: the source's, when the tree came from a rule (an XSLT
+    result has none, and DITA-OT needs it to give each element its DITA class)."""
     path.parent.mkdir(parents=True, exist_ok=True)
     # lxml supports DocInfo.doctype and write(doctype=); lxml-stubs 0.5 don't declare them.
-    doctype = tree.docinfo.doctype or None  # type: ignore[attr-defined]
+    doctype = doctype or tree.docinfo.doctype or None  # type: ignore[attr-defined]
     tree.write(str(path), xml_declaration=True, encoding="UTF-8", doctype=doctype)  # type: ignore[call-arg]
 
 
@@ -158,7 +162,10 @@ def _run_dita(dita: str, inp: Path, out: Path, log: Path) -> None:
         raise ConvertError(f"DITA-OT failed on {inp.name} (exit {proc.returncode}); see {log}")
 
 
-def convert_map(map_path: Path, out_dir: Path, dita: str | None = None) -> ConvertResult:
+def convert_map(
+    map_path: Path, out_dir: Path, dita: str | None = None, rules: RuleSet | None = None
+) -> ConvertResult:
+    """rules: approved mapping rules, applied to each topic in the working copy before tokenizing."""
     model = load_map(map_path)
     src = model.path.parent
     dita_cmd = find_dita(dita)
@@ -170,6 +177,7 @@ def convert_map(map_path: Path, out_dir: Path, dita: str | None = None) -> Conve
     shutil.copytree(src, work, ignore=shutil.ignore_patterns(".git", "build", "out"))
 
     ledger = Ledger()
+    applied: list[dict[str, Any]] = []  # which rule rewrote how many elements in which topic
     published: dict[str, str] = {}  # owner -> markdown path (relative to md_out)
 
     # 1. Published topics: tokenize the working copy in place.
@@ -178,8 +186,13 @@ def convert_map(map_path: Path, out_dir: Path, dita: str | None = None) -> Conve
         if t.processing_role == "resource-only":
             continue
         tree = parse(t.path)
+        doctype = tree.docinfo.doctype  # type: ignore[attr-defined]
+        if rules is not None:
+            for rule_id, n in rules.matches(tree.getroot()).items():
+                applied.append({"rule": rule_id, "topic": rel, "elements": n})
+            tree = rules.apply(tree)
         tokenize(tree.getroot(), ledger, rel)
-        _write(tree, work / rel)
+        _write(tree, work / rel, doctype)
         published[rel] = str(Path(rel).with_suffix(".md"))
 
     # 2. One include per distinct conref target, built from the original source element.
@@ -196,7 +209,7 @@ def convert_map(map_path: Path, out_dir: Path, dita: str | None = None) -> Conve
         if norm in by_target:
             e.detail["include"] = by_target[norm]
             continue
-        el = find_by_id(target_path, tid, eid)
+        el = find_by_id(target_path, tid, eid, rules)
         if el is None:
             ledger.entries.append(
                 Entry(
@@ -266,7 +279,7 @@ def convert_map(map_path: Path, out_dir: Path, dita: str | None = None) -> Conve
 
     ledger_dicts = [asdict(e) for e in ledger.entries]
     result = ConvertResult(
-        model.path.name, str(out_dir), dita_ot_version(dita_cmd), checks, includes, ledger_dicts
+        model.path.name, str(out_dir), dita_ot_version(dita_cmd), checks, includes, ledger_dicts, applied
     )
     (out_dir / "ledger.json").write_text(json.dumps(ledger_dicts, indent=2) + "\n", encoding="utf-8")
     result.write(out_dir / "convert.json")

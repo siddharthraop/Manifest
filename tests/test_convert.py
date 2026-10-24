@@ -130,7 +130,7 @@ def test_every_placeholder_survives_exactly_once_in_every_file(converted) -> Non
     res, _ = converted
     assert res.ok, [f for f in res.files if not f.ok]
     t = res.totals()
-    assert t["files"] == t["files_ok"] == 29  # 23 published topics + 6 includes
+    assert t["files"] == t["files_ok"] == 30  # 24 published topics + 6 includes
     assert t["missing"] == t["repeated"] == 0
 
 
@@ -141,7 +141,7 @@ def test_every_key_and_conref_in_published_topics_is_carried(converted) -> None:
     published = [tp for tp in inv.topics if tp.processing_role == "normal"]
     in_topics = [e for e in res.ledger if not e["owner"].startswith("_manifest_includes")]
     assert sum(e["kind"] == "key" for e in in_topics) == sum(len(tp.keyrefs) for tp in published)
-    assert sum(e["kind"] == "conref" for e in in_topics) == sum(len(tp.conrefs) for tp in published) == 11
+    assert sum(e["kind"] == "conref" for e in in_topics) == sum(len(tp.conrefs) for tp in published) == 12
     assert (
         sum(e["kind"] == "condition" for e in in_topics) == sum(len(tp.conditions) for tp in published) == 11
     )
@@ -156,9 +156,14 @@ def test_shared_content_is_converted_once_per_target(converted) -> None:  # type
 
 
 @needs_dita
-def test_only_the_video_object_is_unhandled_and_it_is_named(converted) -> None:  # type: ignore[no-untyped-def]
+def test_what_has_no_rule_is_unhandled_and_named(converted) -> None:  # type: ignore[no-untyped-def]
+    """The video, which plain DITA-OT drops, and the choice table's ID, which has no text to carry
+    an anchor until a mapping rule turns the choice table into a simple table."""
     res, _ = converted
-    assert [(e["owner"], e["element"]) for e in res.unhandled] == [("topics/osfp-transceiver.dita", "object")]
+    assert sorted((e["owner"], e["element"]) for e in res.unhandled) == [
+        ("topics/osfp-transceiver.dita", "object"),
+        ("topics/tpu-v5e-slice-planning.dita", "choicetable"),
+    ]
 
 
 @needs_dita

@@ -19,7 +19,7 @@ def test_includes_equal_conrefs(migrated: tuple[dict[str, Any], Path]) -> None:
     inventory, restore = load(out / "inventory.json"), load(out / "myst" / "_manifest" / "restore.json")
     conrefs = sum(t["totals"]["conrefs"] for t in inventory["topics"] if t["processing_role"] == "normal")
     t = restore["totals"]
-    assert t["conrefs_as_includes"] + t["conrefs_as_substitutions"] == conrefs == 11
+    assert t["conrefs_as_includes"] + t["conrefs_as_substitutions"] == conrefs == 12
     text = "\n".join(p.read_text() for p in (out / "myst" / "topics").glob("*.md"))
     assert len({m for m in re.findall(r"\{include\} (\S+)", text)}) == t["include_files"] == 5
 
@@ -29,7 +29,7 @@ def test_substitutions_equal_key_references(migrated: tuple[dict[str, Any], Path
     _, out = migrated
     inventory, restore = load(out / "inventory.json"), load(out / "myst" / "_manifest" / "restore.json")
     keyrefs = sum(t["totals"]["keyrefs"] for t in inventory["topics"])  # topics + shared content
-    assert restore["totals"]["keys"] == keyrefs == 169
+    assert restore["totals"]["keys"] == keyrefs == 171
 
 
 @needs_toolchain

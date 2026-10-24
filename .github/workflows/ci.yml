@@ -33,8 +33,10 @@ jobs:
           esac
           EOF
           chmod +x "$RUNNER_TEMP/stub/gcloud"
-          sleep 600 | PATH="$RUNNER_TEMP/stub:$PATH" PROJECT=ci-proj DRY_RUN=1 \
-            timeout 60 ./infra/setup.sh > dry-run.txt 2>&1
+          # stdin stays open (like a terminal) so a stray prompt would block;
+          # process substitution, not a pipe, so the shell doesn't wait for sleep.
+          PATH="$RUNNER_TEMP/stub:$PATH" PROJECT=ci-proj DRY_RUN=1 \
+            timeout 60 ./infra/setup.sh < <(sleep 600) > dry-run.txt 2>&1
           grep -q '== Done' dry-run.txt
           grep -q 'budget-amount=6.40SGD' dry-run.txt
 

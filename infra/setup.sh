@@ -318,8 +318,9 @@ EOF
 done
 cat <<EOF
 
-   Add the Gemini key yourself (it is read from your keyboard, never stored on disk):
-   read -rs KEY && printf %s "\$KEY" | gcloud secrets versions add $SECRET_ID --project=$PROJECT --data-file=- ; unset KEY
+   Add the Gemini key yourself. Copy it in AI Studio, then (macOS; it never touches disk):
+   pbpaste | gcloud secrets versions add $SECRET_ID --project=$PROJECT --data-file=-
+   pbcopy < /dev/null    # clear the clipboard
 
    WIF bindings can take up to 5 minutes to propagate before the first deploy.
 EOF

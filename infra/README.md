@@ -23,8 +23,10 @@ beta component (`gcloud components install beta`).
 
 3. Run the `gh variable set` commands the script prints.
 
-4. Add the Gemini key with the `read -rs` command the script prints. The key goes
-   from your keyboard to Secret Manager and is never written to a file.
+4. Add the Gemini key. Copy it in AI Studio, then run the `pbpaste` command the
+   script prints, and clear the clipboard with `pbcopy < /dev/null`. The key goes
+   from the clipboard to Secret Manager and is never written to a file. Check with
+   `gcloud secrets versions list gemini-api-key`, which shows versions, never values.
 
 The script is idempotent. Re-run it after adding a repository to
 `GITHUB_REPOS`.

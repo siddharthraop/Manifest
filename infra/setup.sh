@@ -92,7 +92,10 @@ BQ_DAILY_GIB=6
 say()  { printf '\n\033[1m== %s\033[0m\n' "$*"; }
 info() { printf '   %s\n' "$*"; }
 run()  { if [[ "$DRY_RUN" == "1" ]]; then { printf '   [dry-run]'; printf ' %q' "$@"; echo; } >&2; else "$@"; fi; }
-exists() { "$@" >/dev/null 2>&1; }       # true if a describe command succeeds
+# True if a describe/list command succeeds. Never interactive: with prompts off
+# and stdin closed, gcloud can't stop to ask "enable this API?" (which it does
+# for a disabled API, e.g. Firestore during a dry run) behind the hidden output.
+exists() { CLOUDSDK_CORE_DISABLE_PROMPTS=1 "$@" </dev/null >/dev/null 2>&1; }
 
 # ---- Preflight ---------------------------------------------------------------
 say "Preflight"
@@ -261,8 +264,8 @@ info "Runtime SA: secretAccessor on $SECRET_ID only"
 
 # ---- 7. Budget ------------------------------------------------------------------
 say "7. Budget $BUDGET_NAME"
-if gcloud billing budgets list --billing-account="$BILLING_ACCOUNT" \
-     --format='value(displayName)' 2>/dev/null | grep -qx "$BUDGET_NAME"; then
+if CLOUDSDK_CORE_DISABLE_PROMPTS=1 gcloud billing budgets list --billing-account="$BILLING_ACCOUNT" \
+     --format='value(displayName)' </dev/null 2>/dev/null | grep -qx "$BUDGET_NAME"; then
   info "Budget exists"
 else
   # exclude-all-credits: credits are added back, so alerts fire on real usage
@@ -279,8 +282,8 @@ fi
 # ---- 8. BigQuery custom quota ---------------------------------------------------
 say "8. BigQuery QueryUsagePerDay = ${BQ_DAILY_GIB} GiB"
 # Cloud Quotas expresses this quota in its own unit; read it rather than assume.
-BQ_UNIT="$(gcloud beta quotas info describe QueryUsagePerDay --service=bigquery.googleapis.com \
-  --project="$PROJECT" --format='value(metricUnit)' 2>/dev/null || true)"
+BQ_UNIT="$(CLOUDSDK_CORE_DISABLE_PROMPTS=1 gcloud beta quotas info describe QueryUsagePerDay --service=bigquery.googleapis.com \
+  --project="$PROJECT" --format='value(metricUnit)' </dev/null 2>/dev/null || true)"
 case "$BQ_UNIT" in
   *MiBy*|*MiB*) BQ_VALUE=$((BQ_DAILY_GIB * 1024)) ;;
   *GiBy*|*GiB*) BQ_VALUE=$BQ_DAILY_GIB ;;

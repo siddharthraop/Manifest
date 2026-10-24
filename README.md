@@ -4,7 +4,7 @@ MANIFEST is a design for an agent that migrates DITA XML documentation to
 docs as code. It converts a DITA map to MyST Markdown, checks every topic for
 lost content, and sends anything it can't fix to a technical writer.
 
-**[Read the design document](https://raosiddharthp.github.io/Manifest/)**
+**[Read the design document](https://siddharthraop.github.io/Manifest/)**
 
 ## Status
 
@@ -78,7 +78,7 @@ The design document is a single HTML file with no build step.
 1. Clone the repository:
 
    ```sh
-   git clone https://github.com/raosiddharthp/Manifest.git
+   git clone https://github.com/siddharthraop/Manifest.git
    ```
 
 1. Open `index.html` in a web browser.
@@ -107,7 +107,7 @@ it. Stakeholders in the design document are job roles, not real people.
 
 Siddharth Rao ([@raosiddharthp](https://github.com/raosiddharthp)). To report
 a problem or ask a question, open an
-[issue](https://github.com/raosiddharthp/Manifest/issues).
+[issue](https://github.com/siddharthraop/Manifest/issues).
 
 ## License
 

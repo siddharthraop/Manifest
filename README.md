@@ -1,18 +1,49 @@
 # MANIFEST
 
-MANIFEST is a design for an agent that migrates DITA XML documentation to
-docs as code. It converts a DITA map to MyST Markdown, checks every topic for
+MANIFEST migrates DITA XML documentation to docs as code. It converts a DITA map to MyST Markdown, checks every topic for
 lost content, and sends anything it can't fix to a technical writer.
 
 **[Read the design document](https://siddharthraop.github.io/Manifest/)**
 
 ## Status
 
-This project is in the design phase. The design document is complete. The
-agent is not built yet, and this repository contains no runnable code.
+**The engine is built and passes on the sample map.** `manifest migrate` runs the
+five deterministic tools and writes a migration report. The Gemini agent, the
+Cloud Run runtime, the console and the DITA help set are the next build steps.
 
-The simulator in the design document is scripted. It shows how the agent is
-designed to behave. It doesn't call Gemini or DITA-OT.
+On `corpus/tpu/tpu.ditamap` (23 published topics, 5 builds: unfiltered and one
+per DITAVAL file):
+
+| Design doc §7 metric | Target | Measured |
+| --- | --- | --- |
+| Unreported losses | 0 | 0 |
+| Topics checked | 100% | 100% (112 comparisons with DITA-OT HTML5) |
+| Reuse kept | 100% of mapped features | 100% (11 conrefs, 169 key references) |
+| IDs kept | 100% | 100% (51 IDs, in DITA-OT's anchor form) |
+| Broken links | 0 | 0 (3,110 links; 112 old URLs) |
+| Topics passed without a writer | Set from the first run | 22 of 23 |
+
+The one topic for a writer has an `<object>` video that DITA-OT's Markdown
+writer drops without a warning. On the way, the checks found four losses that a
+plain DITA-OT conversion ships, and two issues in the source map. See
+[the ADRs](docs/adr/).
+
+## Quick start
+
+You need Python 3.11+, Java 17+, [DITA-OT 4.4](https://www.dita-ot.org/download)
+and [lychee](https://github.com/lycheeverse/lychee).
+
+```sh
+git clone --recurse-submodules https://github.com/siddharthraop/Manifest.git
+cd Manifest
+pip install -e '.[sphinx]'
+export DITA_HOME=/path/to/dita-ot-4.4 LYCHEE=/path/to/lychee
+manifest migrate corpus/tpu/tpu.ditamap
+```
+
+Open `build/report/report.html` for the report, and `build/myst/` for the
+migrated Sphinx project. Each tool also runs on its own: `manifest inventory`,
+`convert`, `restore`, `check` and `links`.
 
 ## The problem
 
@@ -56,8 +87,8 @@ result.
 | Content reference (conref) | Include file, written once | Includes in the output equal conrefs in the source |
 | Key reference | Substitution | Substitutions equal key references |
 | Conditional content | `only` block with build tags | Text matches DITA-OT output for the same DITAVAL file |
-| Element ID | Target | Every source ID is an anchor |
-| Specialized elements | No rule | Sent to a writer for review |
+| Element ID | Anchor in DITA-OT's form (`topicid__elemid`) | Every published ID is an anchor; old URLs resolve |
+| Elements with no rule (`<object>`, conref push) | None | Sent to a writer for review |
 
 ## Technology
 
@@ -85,12 +116,15 @@ The design document is a single HTML file with no build step.
 
 ## Repository contents
 
-| File | Description |
+| Path | Description |
 | --- | --- |
+| `manifest/` | The engine: the five tools, the report and the `manifest` CLI |
+| `tests/` | One test file per user story (`test_us01_report.py` …), per metric and per tool |
+| `corpus/` | The [dita-corpus](https://github.com/siddharthraop/dita-corpus) sample, pinned as a submodule |
+| `infra/` | One-time Google Cloud setup (`setup.sh`) |
+| `docs/adr/` | Architecture decision records |
 | `index.html` | The design document, published with GitHub Pages |
-| `README.md` | This file |
-| `LICENSE` | MIT License |
-| `.gitignore` | Files that Git doesn't track |
+| `.github/workflows/ci.yml` | Lint, types, tests and the end-to-end migration gate |
 
 ## Sample content and attribution
 
@@ -105,7 +139,7 @@ it. Stakeholders in the design document are job roles, not real people.
 
 ## Contact
 
-Siddharth Rao ([@raosiddharthp](https://github.com/raosiddharthp)). To report
+Siddharth Rao ([@siddharthraop](https://github.com/siddharthraop)). To report
 a problem or ask a question, open an
 [issue](https://github.com/siddharthraop/Manifest/issues).
 

@@ -7,9 +7,11 @@ import sys
 from pathlib import Path
 
 from manifest import __version__
+from manifest.pipeline import migrate
 from manifest.tools.check import CheckError, check_topics
 from manifest.tools.convert import ConvertError, convert_map
 from manifest.tools.inventory import inventory_map
+from manifest.tools.links import LinkError, check_links
 from manifest.tools.restore import RestoreError, restore_reuse
 
 
@@ -105,10 +107,54 @@ def _check(args: argparse.Namespace) -> int:
     return 0 if res.ok else 1
 
 
+def _links(args: argparse.Namespace) -> int:
+    try:
+        res = check_links(Path(args.check), Path(args.out), args.lychee)
+    except LinkError as exc:
+        print(f"error: {exc}")
+        return 2
+    t = res.totals()
+    print(
+        f"Links (lychee {res.lychee}, offline): {t['checked_links']} checked in {len(res.builds)} builds, "
+        f"{t['external_links_listed']} external listed; {t['old_urls']} old URLs and {t['old_anchors']} "
+        f"old anchors checked; {t['redirects']} redirects; problems: {t['broken_problems']} broken, "
+        f"{t['navigation_problems']} navigation, {t['old-url_problems']} old URL"
+    )
+    for p in res.problems:
+        print(f"  FAIL [{p.build}] {p.check} {p.page}: {p.detail}")
+    print(f"Wrote {args.out}/links.json, {args.out}/redirects.json")
+    return 0 if res.ok else 1
+
+
+def _migrate(args: argparse.Namespace) -> int:
+    try:
+        r = migrate(Path(args.map), Path(args.out), args.dita, args.lychee)
+    except (ConvertError, RestoreError, CheckError, LinkError, RuntimeError) as exc:
+        print(f"error: {exc}")
+        return 2
+    s = r["summary"]
+    print(
+        f"{r['map']}: gate {r['gate'].upper()} — {s['passed']} passed, {s['review']} need a writer, "
+        f"{s['failed']} failed ({s['topics']} topics, {len(s['builds'])} builds)"
+    )
+    for m in r["metrics"]:
+        print(f"  {m['metric']:32} target {m['target']:24} measured {m['measured']}")
+    for i in r["review_items"]:
+        print(f"  review: {i['topic']} <{i['element']}> line {i['line']}: {i['reason']}")
+    print(f"Wrote {args.out}/myst (the migrated docs) and {args.out}/report/report.html")
+    return 0 if r["gate"] == "pass" else 1
+
+
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(prog="manifest", description=__doc__)
     p.add_argument("--version", action="version", version=f"manifest {__version__}")
     sub = p.add_subparsers(dest="command", required=True)
+    mig = sub.add_parser("migrate", help="run all five tools and write the migration report")
+    mig.add_argument("map", help="path to the root .ditamap")
+    mig.add_argument("--out", default="build", help="output folder")
+    mig.add_argument("--dita", default=None, help="path to the DITA-OT launcher")
+    mig.add_argument("--lychee", default=None, help="path to lychee")
+    mig.set_defaults(func=_migrate)
     inv = sub.add_parser("inventory", help="count what is in the DITA source (tool 1)")
     inv.add_argument("map", help="path to the root .ditamap")
     inv.add_argument("--out", default="build/inventory.json", help="where to write the inventory JSON")
@@ -133,6 +179,13 @@ def main(argv: list[str] | None = None) -> int:
     chk.add_argument("--out", default="build/check", help="where to write both builds and check.json")
     chk.add_argument("--dita", default=None, help="path to the DITA-OT launcher")
     chk.set_defaults(func=_check)
+    lnk = sub.add_parser(
+        "links", help="broken links, navigation and old URLs, on the checked builds (tool 5)"
+    )
+    lnk.add_argument("--check", default="build/check", help="output folder of `manifest check`")
+    lnk.add_argument("--out", default="build/links", help="where to write links.json and redirects.json")
+    lnk.add_argument("--lychee", default=None, help="path to lychee (default: $LYCHEE or PATH)")
+    lnk.set_defaults(func=_links)
     args = p.parse_args(argv)
     result: int = args.func(args)
     return result

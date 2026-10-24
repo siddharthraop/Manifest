@@ -65,27 +65,29 @@ jobs:
           curl -sSL -o /tmp/dita.zip https://github.com/dita-ot/dita-ot/releases/download/4.4/dita-ot-4.4.zip
           unzip -q /tmp/dita.zip -d ~
       - run: echo "DITA_HOME=$HOME/dita-ot-4.4" >> "$GITHUB_ENV"
+      - name: lychee 0.24.2 (link checker)
+        run: |
+          curl -sSL -o /tmp/lychee.tgz https://github.com/lycheeverse/lychee/releases/download/lychee-v0.24.2/lychee-x86_64-unknown-linux-gnu.tar.gz
+          mkdir -p ~/lychee && tar xzf /tmp/lychee.tgz -C ~/lychee
+          echo "LYCHEE=$(find ~/lychee -name lychee -type f | head -1)" >> "$GITHUB_ENV"
       - run: pip install -e '.[dev,sphinx]'
       - run: ruff check .
       - run: ruff format --check manifest tests
       - run: mypy
       - run: pytest -q
-      - run: manifest inventory corpus/tpu/tpu.ditamap --out build/inventory.json
-      - run: manifest convert corpus/tpu/tpu.ditamap --out build/convert
-      - run: manifest restore corpus/tpu/tpu.ditamap --convert build/convert --out build/myst
-      - name: Check every topic against DITA-OT HTML5, for every DITAVAL (the migration gate)
-        run: manifest check corpus/tpu/tpu.ditamap --myst build/myst --out build/check
+      - name: Migrate the TPU map end to end (the gate fails on any difference or broken link)
+        run: manifest migrate corpus/tpu/tpu.ditamap --out build
       - uses: actions/upload-artifact@v4
         with:
-          name: engine-output
+          name: migration
           path: |
-            build/inventory.json
-            build/convert/convert.json
-            build/convert/ledger.json
-            build/convert/markdown
+            build/report
             build/myst
+            build/inventory.json
+            build/convert/ledger.json
             build/check/check.json
             build/check/sphinx-html
+            build/links
 
   wif-smoke:
     name: Keyless login to Google Cloud

@@ -149,6 +149,16 @@ def check_links(
         raise LinkError(f"no Sphinx builds in {check_dir}/sphinx-html; run check first")
     res = LinkResult(builds, lychee_version(cmd), redirects=dict(redirects or {}))
 
+    # The anchors each page must keep: source IDs as DITA-OT published them, recorded by check_topic.
+    expected: dict[tuple[str, str], list[str]] = {}
+    check_json = check_dir / "check.json"
+    if not check_json.exists():
+        raise LinkError(f"{check_json} not found; run check first")
+    for t in json.loads(check_json.read_text(encoding="utf-8"))["topics"]:
+        page = str(Path(t["topic"]).with_suffix(".html"))
+        for tb in t["builds"]:
+            expected[(tb["build"], page)] = tb.get("anchors", [])
+
     for b in builds:
         dita_site, site = check_dir / "dita-html" / b, check_dir / "sphinx-html" / b
         write_redirects(site, res.redirects)
@@ -177,12 +187,7 @@ def check_links(
                 res.problems.append(LinkProblem(b, "old-url", page, "no page and no redirect for this URL"))
                 continue
             dita_page = dita_site / page
-            topic_id = Path(page).stem
-            anchors = {
-                a
-                for a in ANCHOR_IN_PAGE.findall(dita_page.read_text(encoding="utf-8"))
-                if (a == topic_id or a.startswith(f"{topic_id}__")) and "__entry__" not in a
-            }
+            anchors = set(expected.get((b, page), []))
             have = set(ANCHOR_IN_PAGE.findall(target.read_text(encoding="utf-8")))
             res.old_anchors += len(anchors)
             for a in sorted(anchors - have):

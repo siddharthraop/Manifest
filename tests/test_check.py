@@ -64,21 +64,25 @@ def checked(tmp_path_factory: pytest.TempPathFactory):  # type: ignore[no-untype
 
 
 @needs_all
-def test_us07_every_topic_matches_dita_ot_in_every_build(checked) -> None:  # type: ignore[no-untyped-def]
+def test_us07_every_topic_matches_dita_ot_except_the_one_with_no_rule(checked) -> None:  # type: ignore[no-untyped-def]
+    """With no mapping rules, only the deliberately specialized topic fails, and for the right
+    reasons: the hazard statement and the choice table don't render as DITA-OT renders them."""
     res, _ = checked
-    failures = [
-        (t.topic, b.build, d.check, d.detail) for t in res.topics for b in t.builds for d in b.differences
-    ]
-    assert failures == []
-    assert res.ok and res.totals()["topics_passed"] == 23
+    failing = {t.topic for t in res.topics if not t.ok}
+    assert failing == {"topics/tpu-v5e-slice-planning.dita"}
+    assert res.totals()["topics_passed"] == 23
+    slice_topic = next(t for t in res.topics if t.topic == "topics/tpu-v5e-slice-planning.dita")
+    assert slice_topic.failed_checks() == ["ids", "structure", "text"]
+    assert [b.build for b in slice_topic.builds] == ["unfiltered", "v5e"]  # where DITA-OT publishes it
 
 
 @needs_all
 def test_us01_no_topic_is_skipped(checked) -> None:  # type: ignore[no-untyped-def]
     res, _ = checked
     t = res.totals()
-    # 23 topics in the unfiltered and TPU7x builds, 22 in v5e/v5p/v6e (tpu7x-memory isn't published there).
-    assert t["comparisons"] == 23 + 22 + 22 + 22 + 23 == 112
+    # unfiltered 24 · TPU7x 23 (no v5e slice planning) · v5e 23 · v5p and v6e 22 (no tpu7x-memory
+    # and no v5e slice planning).
+    assert t["comparisons"] == 24 + 23 + 23 + 22 + 22 == 114
     assert res.builds == ["unfiltered", "tpu7x", "v5e", "v5p", "v6e"]
 
 
@@ -98,7 +102,7 @@ def test_sphinx_builds_are_warning_free(checked) -> None:  # type: ignore[no-unt
 def test_report_is_written(checked) -> None:  # type: ignore[no-untyped-def]
     _, work = checked
     data = json.loads((work / "check" / "check.json").read_text())
-    assert data["ok"] is True and data["totals"]["differences"] == 0
+    assert data["ok"] is False and data["totals"]["topics_passed"] == 23 and data["totals"]["differences"] > 0
 
 
 # ---------------------------------------------------------------- mutations: each loss is caught
@@ -201,3 +205,27 @@ def test_catches_a_lost_figure_caption(checked, tmp_path: Path) -> None:  # type
 
     diffs = _mutated(work, tmp_path, edit)
     assert any(t == "topics/osfp-transceiver.dita" and c == "text" and "lost" in d for t, c, d in diffs)
+
+
+# ---------------------------------------------------------------- checker fixes found in step 3
+
+
+def test_svg_icons_are_not_text(tmp_path: Path) -> None:
+    """DITA-OT HTML5 inlines an SVG icon in each hazard statement; its metadata isn't text."""
+    from manifest.tools.check import _content
+
+    page = tmp_path / "p.html"
+    page.write_text('<html><body><article><th><svg><title>image/svg+xml</title></svg> CAUTION</th>'
+                    "<p>Check quota.</p></article></body></html>")  # fmt: skip
+    assert text_of(_content(page, "dita")) == ["CAUTION", "Check", "quota."]
+
+
+def test_expected_anchors_come_from_source_ids(tmp_path: Path) -> None:
+    """IDs DITA-OT generates itself (property headers, table cells) are not source anchors."""
+    from manifest.tools.check import source_anchors
+
+    topic = tmp_path / "t.dita"
+    topic.write_text('<reference id="r"><title>T</title><prolog><data id="meta"/></prolog><refbody>'
+                     '<properties id="props"><property><proptype>A</proptype></property></properties>'
+                     "</refbody></reference>")  # fmt: skip
+    assert source_anchors(topic) == {"r", "r__props"}

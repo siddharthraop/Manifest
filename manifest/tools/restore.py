@@ -37,6 +37,7 @@ INLINE_CONREF_ELEMENTS = {"ph", "keyword", "term", "codeph", "q", "cite", "varna
 LIST_ITEM_ELEMENTS = {"step", "substep", "li", "sli", "choice"}
 TABLE_ROW_ELEMENTS = {"row", "strow", "sthead"}
 HEADING_ATTRS = re.compile(r"^(#{1,6}) (.*?) \{#([^\s}]+)((?: \.[\w-]+)*)\}\s*$")
+HEADING_CLASSES = re.compile(r"^(#{1,6}) (.*?) \{(?: \.[\w-]+)+\}\s*$")  # `{ .section}`: no ID
 FENCE = re.compile(r"^(\s*)(`{3,}|~{3,})(.*)$")
 INLINE_CODE = re.compile(r"(?<!`)(`+)(?!`)(.+?)(?<!`)\1(?!`)")
 LIST_MARKER = re.compile(r"^(\s*)(\d+\.|[-*+])(\s+)")
@@ -424,6 +425,24 @@ def _wrap(css: str, body: list[str], lead: list[str] | None = None) -> list[str]
     return ["", f":::::{{container}} {css}", "", *(lead or []), *body, "", ":::::", ""]
 
 
+HTML_BLOCK_GLUE = re.compile(r"^(\s*)(.*</(?:table|div|pre|dl)>)(\S.*)$")
+
+
+def unglue_html_blocks(lines: list[str]) -> list[str]:
+    """DITA-OT's Markdown writer falls back to a raw HTML table when a cell holds several
+    paragraphs, then writes the next block on the same line: `</table>1.  Find the…`. Markdown
+    then reads that block as part of the HTML, swallowing a whole step list (found by the text
+    check on the TPU corpus). Put the next block on its own line after a blank line."""
+    out: list[str] = []
+    for line in lines:
+        m = HTML_BLOCK_GLUE.match(line)
+        if m:
+            out.extend([m.group(1) + m.group(2), "", m.group(1) + m.group(3)])
+        else:
+            out.append(line)
+    return out
+
+
 def mark_generated(lines: list[str], md_rel: str, children: set[str]) -> list[str]:
     """Wrap the navigation DITA-OT generates from the map (child links, parent link, related
     links) in a `manifest-nav` container, so authored text and generated links can be checked
@@ -544,6 +563,9 @@ def apply_tokens(
             continue
 
         # Heading attributes DITA-OT writes but MyST doesn't read: {#id .class}
+        cm = HEADING_CLASSES.match(line)
+        if cm:
+            line = f"{cm.group(1)} {cm.group(2)}"
         hm = HEADING_ATTRS.match(line)
         if hm:
             hashes, title, hid, _classes = hm.groups()
@@ -890,6 +912,7 @@ def restore_reuse(
             for k in model.topics
             if k.parent == t.path
         }
+        lines = unglue_html_blocks(lines)
         lines = mark_generated(lines, md_rel, child_pages)
         lines = apply_conditions(
             lines, [c for c in ledger if c["kind"] == "condition" and c["owner"] == rel], builds, result, rel

@@ -19,6 +19,7 @@ from pathlib import Path
 from typing import Any
 
 from manifest.report import build_report, write_report
+from manifest.rules import RuleSet
 from manifest.tools.check import check_topics
 from manifest.tools.convert import convert_map, dita_ot_version, find_dita
 from manifest.tools.inventory import inventory_map
@@ -33,11 +34,18 @@ def _version(dist: str) -> str:
         return "not installed"
 
 
-def migrate(map_path: Path, out: Path, dita: str | None = None, lychee: str | None = None) -> dict[str, Any]:
+def migrate(
+    map_path: Path,
+    out: Path,
+    dita: str | None = None,
+    lychee: str | None = None,
+    rules: RuleSet | None = None,
+) -> dict[str, Any]:
+    """rules: the approved mapping rules to apply (default: none)."""
     dita_cmd = find_dita(dita)
     inv = inventory_map(map_path)
     inv.write(out / "inventory.json")
-    conv = convert_map(map_path, out / "convert", dita_cmd)
+    conv = convert_map(map_path, out / "convert", dita_cmd, rules)
     if not conv.ok:
         raise RuntimeError("convert_map lost placeholders; see convert/convert.json")
     restore_reuse(map_path, out / "convert", out / "myst")

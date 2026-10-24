@@ -19,7 +19,11 @@ from manifest.tools.links import check_links, redirect_stub
 def test_every_old_url_and_anchor_resolves(migrated: tuple[dict[str, Any], Path]) -> None:
     _, out = migrated
     links = load(out / "links" / "links.json")
-    assert links["ok"] and links["totals"]["old_urls"] == 112 and links["totals"]["old_anchors"] > 200
+    assert links["ok"] and links["totals"]["old_urls"] == 114
+    # Every anchor DITA-OT derived from a source ID, in every build, was checked (and resolved).
+    check = load(out / "check" / "check.json")
+    recorded = sum(len(b["anchors"]) for t in check["topics"] for b in t["builds"])
+    assert links["totals"]["old_anchors"] == recorded > 100
     assert links["totals"]["broken_problems"] == links["totals"]["navigation_problems"] == 0
 
 
@@ -35,6 +39,7 @@ def _copy_check(out: Path, tmp: Path) -> Path:
     dst = tmp / "check"
     for side in ("dita-html", "sphinx-html"):
         shutil.copytree(out / "check" / side / "unfiltered", dst / side / "unfiltered")
+    shutil.copy(out / "check" / "check.json", dst / "check.json")  # the anchors each page must keep
     return dst
 
 

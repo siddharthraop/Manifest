@@ -1,0 +1,11 @@
+{
+  "id": "choicetable-to-simpletable",
+  "match": "choicetable",
+  "status": "approved",
+  "description": "A choice table becomes a simple table with the same header, rows and ID.",
+  "xslt": "<xsl:template match=\"choicetable\"><simpletable><xsl:apply-templates select=\"@*\"/><xsl:apply-templates select=\"chhead|chrow\"/></simpletable></xsl:template>\n<xsl:template match=\"chhead\"><sthead><xsl:apply-templates select=\"@*|*\"/></sthead></xsl:template>\n<xsl:template match=\"chrow\"><strow><xsl:apply-templates select=\"@*|*\"/></strow></xsl:template>\n<xsl:template match=\"choptionhd|chdeschd|choption|chdesc\"><stentry><xsl:apply-templates select=\"@*|node()\"/></stentry></xsl:template>",
+  "provenance": {
+    "proposed_by": "hand-written test fixture (a stand-in for a Gemini proposal)",
+    "approved_by": "test suite"
+  }
+}

@@ -1,4 +1,5 @@
-"""Design doc §7 success metrics, measured on the TPU sample map. The MVP succeeds if these are met."""
+"""Design doc §7 success metrics, measured on the TPU sample map with its mapping rules. The MVP
+succeeds if these are met."""
 
 from __future__ import annotations
 
@@ -32,5 +33,5 @@ def test_tracked_metrics_are_reported(migrated: tuple[dict[str, Any], Path]) -> 
     assert names[-2:] == ["Topics passed without a writer", "Fixes approved"]
     assert (
         next(m for m in report["metrics"] if m["metric"] == "Topics passed without a writer")["measured"]
-        == "22/23"
+        == "23/24"
     )

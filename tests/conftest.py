@@ -1,4 +1,5 @@
-"""One end-to-end `manifest migrate` run on the real corpus, shared by the story and metric tests."""
+"""Two end-to-end `manifest migrate` runs on the real corpus, shared by the story and metric tests:
+`baseline` (no mapping rules) and `migrated` (with the fixture rules)."""
 
 from __future__ import annotations
 
@@ -31,14 +32,26 @@ needs_toolchain = pytest.mark.skipif(
 )
 
 
+FIXTURE_RULES = Path(__file__).parent / "fixtures" / "rules"
+
+
 @pytest.fixture(scope="session")
-def migrated(tmp_path_factory: pytest.TempPathFactory) -> tuple[dict[str, Any], Path]:
-    """(report, build folder) for one full run on corpus/tpu/tpu.ditamap."""
+def baseline(tmp_path_factory: pytest.TempPathFactory) -> tuple[dict[str, Any], Path]:
+    """(report, build folder) with no mapping rules: the specialized slice-planning topic fails."""
     from manifest.pipeline import migrate
 
+    out = tmp_path_factory.mktemp("baseline")
+    return migrate(TPU_MAP, out), out
+
+
+@pytest.fixture(scope="session")
+def migrated(tmp_path_factory: pytest.TempPathFactory) -> tuple[dict[str, Any], Path]:
+    """(report, build folder) with the fixture rules for <choicetable> and <hazardstatement>."""
+    from manifest.pipeline import migrate
+    from manifest.rules import RuleSet, load_rules
+
     out = tmp_path_factory.mktemp("migrate")
-    report = migrate(TPU_MAP, out)
-    return report, out
+    return migrate(TPU_MAP, out, rules=RuleSet(load_rules(FIXTURE_RULES))), out
 
 
 def load(path: Path) -> dict[str, Any]:

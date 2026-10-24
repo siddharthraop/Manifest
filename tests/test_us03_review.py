@@ -34,6 +34,16 @@ def test_the_video_object_goes_to_a_writer(migrated: tuple[dict[str, Any], Path]
 
 
 @needs_toolchain
+def test_an_id_with_no_place_to_go_is_a_review_item_until_a_rule_exists(
+    baseline: tuple[dict[str, Any], Path],
+) -> None:
+    """Without a rule, the choice table's ID has no text to carry an anchor: a writer is told."""
+    report, _ = baseline
+    items = {(i["topic"], i["element"]) for i in report["review_items"]}
+    assert ("topics/tpu-v5e-slice-planning.dita", "choicetable") in items
+
+
+@needs_toolchain
 def test_review_items_never_pass_silently(migrated: tuple[dict[str, Any], Path]) -> None:
     report, _ = migrated
     flagged = {i["topic"] for i in report["review_items"]}

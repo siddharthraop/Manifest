@@ -39,8 +39,8 @@ def corpus_inventory(tmp_path_factory: pytest.TempPathFactory) -> dict:  # type:
 
 @needs_corpus
 def test_every_mapped_topic_is_inventoried(tpu) -> None:  # type: ignore[no-untyped-def]
-    # 33 DITA files in tpu/ minus the root map, key map, 2 subject maps and 4 DITAVAL files.
-    assert tpu.totals["topics"] == 25
+    # 34 DITA files in tpu/ minus the root map, key map, 2 subject maps and 4 DITAVAL files.
+    assert tpu.totals["topics"] == 26
     assert [t.path for t in tpu.topics][:2] == [
         "topics/tpu-overview.dita",
         "topics/tpu-generations-compared.dita",
@@ -51,7 +51,7 @@ def test_every_mapped_topic_is_inventoried(tpu) -> None:  # type: ignore[no-unty
 
 @needs_corpus
 def test_key_references_match_the_corpus_tool(tpu, corpus_inventory) -> None:  # type: ignore[no-untyped-def]
-    assert tpu.totals["keyrefs"] == corpus_inventory["keyref_uses"] == 169
+    assert tpu.totals["keyrefs"] == corpus_inventory["keyref_uses"] == 171
     assert tpu.totals["keys_defined"] == len(corpus_inventory["keys"]) == 75
     assert all(k.defined for t in tpu.topics for k in t.keyrefs), "every key reference has a definition"
 
@@ -60,7 +60,7 @@ def test_key_references_match_the_corpus_tool(tpu, corpus_inventory) -> None:  #
 def test_conrefs_match_the_corpus_tool_and_all_resolve(tpu, corpus_inventory) -> None:  # type: ignore[no-untyped-def]
     ours = sorted((t.path, c.target) for t in tpu.topics for c in t.conrefs)
     theirs = sorted((c["file"].removeprefix("tpu/"), c["target"]) for c in corpus_inventory["conrefs"])
-    assert ours == theirs and len(ours) == 11
+    assert ours == theirs and len(ours) == 12
     assert all(c.resolves for t in tpu.topics for c in t.conrefs)
 
 
@@ -99,8 +99,8 @@ def test_cli_writes_json_and_exits_zero(tmp_path: Path, capsys: pytest.CaptureFi
     out = tmp_path / "inv.json"
     assert main(["inventory", str(TPU_MAP), "--out", str(out)]) == 0
     data = json.loads(out.read_text())
-    assert data["schema_version"] == "1" and data["totals"]["keyrefs"] == 169
-    assert "25 topics" in capsys.readouterr().out
+    assert data["schema_version"] == "1" and data["totals"]["keyrefs"] == 171
+    assert "26 topics" in capsys.readouterr().out
 
 
 # ---------------------------------------------------------------- small fixtures: failure paths

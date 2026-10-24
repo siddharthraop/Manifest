@@ -75,8 +75,12 @@ jobs:
       - run: ruff format --check manifest tests
       - run: mypy
       - run: pytest -q
-      - name: Migrate the TPU map end to end (the gate fails on any difference or broken link)
-        run: manifest migrate corpus/tpu/tpu.ditamap --out build
+      - name: Migrate the TPU map end to end, with the approved rules
+        run: |
+          # Exit 0: every topic passes. 1: some topics need an approved rule or a writer; the test
+          # suite asserts exactly which. 2 or more: an error, which fails the job.
+          manifest migrate corpus/tpu/tpu.ditamap --out build --rules rules || status=$?
+          test "${status:-0}" -le 1
       - uses: actions/upload-artifact@v4
         with:
           name: migration

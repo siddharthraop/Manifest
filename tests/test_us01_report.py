@@ -27,7 +27,7 @@ def test_no_topic_is_skipped(migrated: tuple[dict[str, Any], Path]) -> None:
     report, out = migrated
     inventory = load(out / "inventory.json")
     published = {t["path"] for t in inventory["topics"] if t["processing_role"] == "normal"}
-    assert {t["topic"] for t in report["topics"]} == published and len(published) == 23
+    assert {t["topic"] for t in report["topics"]} == published and len(published) == 24
     assert all(set(t["checks"]) == {"counts", "text", "ids", "links"} for t in report["topics"])
 
 
@@ -36,12 +36,24 @@ def test_the_tpu_map_passes_with_one_topic_for_a_writer(migrated: tuple[dict[str
     report, _ = migrated
     assert report["gate"] == "pass"
     assert report["summary"] | {"builds": None} == {
-        "topics": 23,
-        "passed": 22,
+        "topics": 24,
+        "passed": 23,
         "review": 1,
         "failed": 0,
         "builds": None,
     }
+
+
+@needs_toolchain
+def test_without_a_rule_the_specialized_topic_fails_and_says_why(
+    baseline: tuple[dict[str, Any], Path],
+) -> None:
+    report, _ = baseline
+    assert report["gate"] == "fail" and report["summary"]["failed"] == 1
+    row = next(t for t in report["topics"] if t["status"] == "fail")
+    assert row["topic"] == "topics/tpu-v5e-slice-planning.dita"
+    assert {d["check"] for d in row["differences"]} >= {"text", "structure", "ids"}
+    assert any("tables: DITA-OT 2" in d["detail"] for d in row["differences"])
 
 
 @needs_toolchain

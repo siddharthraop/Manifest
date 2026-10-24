@@ -1,0 +1,62 @@
+name: ci
+
+# Build step 1 skeleton. Later steps add lint, types, tests and the help gate.
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  infra-lint:
+    name: Lint infra scripts
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: shellcheck
+        run: shellcheck infra/*.sh
+      - name: Dry run against a stub gcloud (every step must execute, none may hang)
+        run: |
+          mkdir -p "$RUNNER_TEMP/stub"
+          cat > "$RUNNER_TEMP/stub/gcloud" <<'EOF'
+          #!/usr/bin/env bash
+          case "$*" in
+            "auth list"*) echo ci@example.com ;;
+            "projects describe"*) echo 123456789012 ;;
+            "billing projects describe"*) echo billingAccounts/0000-AAAA-1111 ;;
+            "billing accounts describe"*) echo SGD ;;
+            *"quotas info describe"*) echo MiBy ;;
+            *describe*) [ "$CLOUDSDK_CORE_DISABLE_PROMPTS" = 1 ] || read -r _; exit 1 ;;
+            *) exit 0 ;;
+          esac
+          EOF
+          chmod +x "$RUNNER_TEMP/stub/gcloud"
+          sleep 600 | PATH="$RUNNER_TEMP/stub:$PATH" PROJECT=ci-proj DRY_RUN=1 \
+            timeout 60 ./infra/setup.sh > dry-run.txt 2>&1
+          grep -q '== Done' dry-run.txt
+          grep -q 'budget-amount=6.40SGD' dry-run.txt
+
+  wif-smoke:
+    name: Keyless login to Google Cloud
+    # Same-repo pull requests and pushes only: forks get no OIDC token.
+    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write   # required for the GitHub OIDC token (google-github-actions/auth README)
+    steps:
+      - uses: actions/checkout@v4
+      - id: auth
+        uses: google-github-actions/auth@v3
+        with:
+          project_id: ${{ vars.GCP_PROJECT }}
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_DEPLOY_SA }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Prove the deploy SA can see the one repo it may push to
+        run: |
+          gcloud auth list
+          gcloud artifacts repositories describe tw-images \
+            --location="${{ vars.GCP_REGION }}" --format='value(name)'

@@ -40,6 +40,27 @@ jobs:
           grep -q '== Done' dry-run.txt
           grep -q 'budget-amount=6.40SGD' dry-run.txt
 
+  engine:
+    name: Engine (lint, types, tests on the real corpus)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true   # the corpus, pinned to a fixed commit
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - run: pip install -e '.[dev]'
+      - run: ruff check .
+      - run: ruff format --check manifest tests
+      - run: mypy
+      - run: pytest -q
+      - run: manifest inventory corpus/tpu/tpu.ditamap --out build/inventory.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: inventory
+          path: build/inventory.json
+
   wif-smoke:
     name: Keyless login to Google Cloud
     # Same-repo pull requests and pushes only: forks get no OIDC token.

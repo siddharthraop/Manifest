@@ -1,0 +1,40 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "manifest-dita"
+version = "0.1.0"
+description = "Migrate a DITA map to MyST Markdown and prove that every topic is complete."
+readme = "README.md"
+license = { text = "MIT" }
+authors = [{ name = "Siddharth Rao" }]
+requires-python = ">=3.11"
+dependencies = ["lxml>=5.3"]
+
+[project.optional-dependencies]
+dev = ["pytest>=8", "mypy>=1.10", "ruff>=0.6", "lxml-stubs>=0.5"]
+
+[project.scripts]
+manifest = "manifest.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["manifest*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.mypy]
+strict = true
+files = ["manifest"]
+
+[tool.ruff]
+line-length = 110
+target-version = "py311"
+extend-exclude = ["corpus", ".venv", "build"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["E501"]

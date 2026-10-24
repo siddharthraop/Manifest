@@ -72,19 +72,17 @@ IDS_KEPT_BY_DITA_OT = {"section", "example"}
 # renders nothing. Map the element to the child to create.
 CONTAINER_CHILD = {"step": "cmd", "substep": "cmd", "ul": "li", "ol": "li", "sl": "sli", "steps": "step"}
 
-UNSUPPORTED_ELEMENTS = {"object"}
+UNSUPPORTED_ELEMENTS = {"object"}  # no Markdown equivalent; see the US-03 review rule
 
 # Preformatted elements. DITA-OT's Markdown writer emits inline markup inside them as literal
 # Markdown (<varname>TPU_NAME</varname> becomes *TPU\_NAME* inside a code fence), so inline
 # elements other than key references are flattened to their text first. The HTML5 text is the
 # same either way.
-PREFORMATTED = {
-    "codeblock",
-    "pre",
-    "screen",
-    "msgblock",
-    "lines",
-}  # no Markdown equivalent; see the US-03 review rule
+PREFORMATTED = {"codeblock", "pre", "screen", "msgblock", "lines", "codeph"}  # codeph is inline code
+
+# Labels DITA-OT HTML5 adds that its Markdown writer drops (found by the text check). Added to the
+# working copy as real text, so the migrated page says what the published page said.
+STEP_LABELS = {"optional": "Optional:", "required": "Required:"}
 
 
 @dataclass
@@ -190,9 +188,22 @@ def _flatten_preformatted(root: etree._Element) -> None:
             _replace_with_text(child, "".join(str(t) for t in child.itertext()))
 
 
+def _add_step_labels(root: etree._Element) -> None:
+    for step in root.iter("step", "substep"):
+        label = STEP_LABELS.get(step.get("importance") or "")
+        cmd = step.find("cmd")
+        if label and cmd is not None:
+            b = etree.Element("b")
+            b.text = label
+            b.tail = " " + (cmd.text or "")
+            cmd.text = None
+            cmd.insert(0, b)
+
+
 def tokenize(root: etree._Element, ledger: Ledger, owner: str) -> None:
     """Replace reuse, conditions and droppable IDs in a parsed topic with tokens, in place."""
     _flatten_preformatted(root)
+    _add_step_labels(root)
     in_metadata: set[etree._Element] = set()
     for el in list(root.iter()):
         if not isinstance(el.tag, str) or el in in_metadata:

@@ -19,6 +19,7 @@ import json
 import os
 import re
 import urllib.request
+from collections.abc import Callable
 from dataclasses import asdict
 from pathlib import Path
 from typing import Any
@@ -137,11 +138,20 @@ def fix_map(
     max_attempts: int = 2,
     open_issues: bool = False,
     run_id: str | None = None,
+    progress: Callable[[str], None] | None = None,
 ) -> dict[str, Any]:
     run_id = run_id or dt.datetime.now(dt.UTC).strftime("%Y%m%dT%H%M%SZ")
     approved = load_rules(rules_dir) if rules_dir else []
     base = out / "baseline"
-    report = migrate(map_path, base, dita, lychee, RuleSet(approved) if approved else None)
+    say = progress or (lambda _stage: None)
+    report = migrate(
+        map_path,
+        base,
+        dita,
+        lychee,
+        RuleSet(approved) if approved else None,
+        progress=lambda st: say(f"baseline: {st}"),
+    )
     failing = sorted(t["topic"] for t in report["topics"] if t["status"] == "fail")
 
     model, after = make_model(mode, model_id, recording, script)
@@ -157,6 +167,7 @@ def fix_map(
     }
     for topic in failing:
         session = FixSession(map_path, topic, base, out / "agent" / slug(topic), approved, dita, max_attempts)
+        say(f"agent: {topic}")
         asyncio.run(_run_session(session, model, after))
         sessions.append(session)
         win = session.passing_attempt
@@ -195,7 +206,13 @@ def fix_map(
 
     final_rules = [*approved, *proposed]
     final = migrate(
-        map_path, out, dita, lychee, RuleSet(final_rules) if final_rules else None, agent=agent_info
+        map_path,
+        out,
+        dita,
+        lychee,
+        RuleSet(final_rules) if final_rules else None,
+        agent=agent_info,
+        progress=lambda st: say(f"final: {st}"),
     )
     run = {
         **agent_info,

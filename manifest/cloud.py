@@ -37,6 +37,7 @@ from manifest.store import Blobs, NotFound, Store, now
 ROOT = Path(os.environ.get("MANIFEST_ROOT") or Path(__file__).resolve().parent.parent)
 CORPUS = ROOT / "corpus"
 MODES = ("migrate", "replay", "live")
+PUBLIC_MODES = ("migrate", "replay")  # no model call, no quota: anyone may start these (ADR 0010)
 ACTOR = "manifest-job"
 
 
@@ -48,10 +49,15 @@ def new_run_id() -> str:
     return dt.datetime.now(dt.UTC).strftime("%Y%m%dT%H%M%SZ")
 
 
+def _map_roots(corpus: Path) -> list[Path]:
+    return [corpus.resolve(), (corpus.parent / "help").resolve()]
+
+
 def resolve_map(value: str, corpus: Path = CORPUS) -> Path:
-    """A map the job may run: a .ditamap inside the corpus, nothing else."""
+    """A map the job may run: a root .ditamap in the corpus or the help set, nothing else."""
     p = (corpus.parent / value).resolve() if not Path(value).is_absolute() else Path(value).resolve()
-    if p.suffix != ".ditamap" or not p.is_relative_to(corpus.resolve()) or not p.is_file():
+    allowed = p.suffix == ".ditamap" and p.is_file() and any(p.is_relative_to(r) for r in _map_roots(corpus))
+    if not allowed or str(p.relative_to(corpus.parent.resolve())) not in list_maps(corpus):
         raise JobError(f"not a DITA map in the corpus: {value}")
     return p
 
@@ -61,7 +67,18 @@ def recording_for(map_path: Path, root: Path = ROOT) -> Path:
 
 
 def list_maps(corpus: Path = CORPUS) -> list[str]:
-    return sorted(str(p.relative_to(corpus.parent)) for p in corpus.rglob("*.ditamap"))
+    """Root maps a user can migrate: one folder down in the corpus, plus MANIFEST's own help.
+    Key maps, subject schemes and other maps that other maps include are not offered."""
+    base = corpus.parent.resolve()
+    found = [*corpus.resolve().glob("*/*.ditamap"), *(base / "help").glob("*.ditamap")]
+    roots = [p for p in found if b"subjectScheme" not in p.read_bytes()[:600]]
+    return sorted(str(p.relative_to(base)) for p in roots)
+
+
+def available_modes(map_value: str, corpus: Path = CORPUS) -> list[str]:
+    """Modes that can run for this map: replay needs a recording of a live run."""
+    rec = corpus.parent / "recordings" / f"{Path(map_value).stem}.jsonl"
+    return [m for m in MODES if m != "replay" or rec.exists()]
 
 
 def _approved_rules(store: Store, repo_rules: Path, dest: Path) -> list[Rule]:
@@ -120,6 +137,10 @@ def run_job(
     try:
         if mode not in MODES and not (mode == "scripted" and script is not None):
             raise JobError(f"unknown mode {mode!r}: use {', '.join(MODES)}")
+
+        def show_stage(name: str) -> None:
+            store.merge("runs", run_id, {"stage": name}, ACTOR, "run.progress")
+
         map_path = resolve_map(map_value, corpus)
         if mode == "live":
             check_api_key(env)  # before minutes of migration, not after
@@ -128,7 +149,9 @@ def run_job(
         out = work / "out"
         agent: dict[str, Any] = {}
         if mode == "migrate":
-            report = migrate(map_path, out, rules=RuleSet(approved) if approved else None)
+            report = migrate(
+                map_path, out, rules=RuleSet(approved) if approved else None, progress=show_stage
+            )
         else:
             from manifest.agent.runner import fix_map  # needs the [agent] extra
 
@@ -137,7 +160,9 @@ def run_job(
                 raise JobError(f"no recording for {map_path.name}: record a live run first")
             if mode == "live":
                 recording = out / "agent" / "recording.jsonl"
-            agent = fix_map(map_path, out, mode, model, recording, rules_dir, script, run_id=run_id)
+            agent = fix_map(
+                map_path, out, mode, model, recording, rules_dir, script, run_id=run_id, progress=show_stage
+            )
             report = json.loads((out / "report" / "report.json").read_text(encoding="utf-8"))
 
         stage = work / "stage"
@@ -172,6 +197,7 @@ def run_job(
 
         result = {
             "status": "succeeded",
+            "stage": "done",
             "finished_at": now(),
             "duration_s": round(time.monotonic() - started),
             "model": model if mode == "live" else mode,

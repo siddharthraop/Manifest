@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import importlib.metadata
 import json
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
@@ -41,16 +42,24 @@ def migrate(
     lychee: str | None = None,
     rules: RuleSet | None = None,
     agent: dict[str, Any] | None = None,
+    progress: Callable[[str], None] | None = None,
 ) -> dict[str, Any]:
-    """rules: the mapping rules to apply (default: none). agent: `manifest fix`'s results, for the report."""
+    """rules: the mapping rules to apply (default: none). agent: `manifest fix`'s results, for the report.
+    progress: called with each stage's name as it starts (the cloud job shows it to the console)."""
+    step = progress or (lambda _stage: None)
     dita_cmd = find_dita(dita)
+    step("inventory")
     inv = inventory_map(map_path)
     inv.write(out / "inventory.json")
+    step("convert")
     conv = convert_map(map_path, out / "convert", dita_cmd, rules)
     if not conv.ok:
         raise RuntimeError("convert_map lost placeholders; see convert/convert.json")
+    step("restore")
     restore_reuse(map_path, out / "convert", out / "myst")
+    step("check")
     check_topics(map_path, out / "myst", out / "check", dita_cmd)
+    step("links")
     lnk = check_links(out / "check", out / "links", lychee)
 
     def load(p: Path) -> dict[str, Any]:
@@ -73,5 +82,6 @@ def migrate(
         agent,
         [r.id for r in rules.rules] if rules else [],
     )
+    step("report")
     write_report(report, out / "report")
     return report

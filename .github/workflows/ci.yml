@@ -1,6 +1,7 @@
 name: ci
 
-# Build step 1 skeleton. Later steps add lint, types, tests and the help gate.
+# Lint, types and tests on the real corpus; the container built and run; keyless login proven.
+# Deploys are in deploy.yml (main only). The help gate arrives with build step 6.
 on:
   pull_request:
   push:
@@ -39,6 +40,16 @@ jobs:
             timeout 60 ./infra/setup.sh < <(sleep 600) > dry-run.txt 2>&1
           grep -q '== Done' dry-run.txt
           grep -q 'budget-amount=6.40SGD' dry-run.txt
+      - name: deploy.sh against the stub (never public, never always-on)
+        run: |
+          printf '#!/usr/bin/env bash\necho "gcloud $*" >> "$RUNNER_TEMP/calls.txt"\n' > "$RUNNER_TEMP/stub/gcloud"
+          PATH="$RUNNER_TEMP/stub:$PATH" PROJECT=p REGION=us-central1 RUNTIME_SA=sa@p.iam.gserviceaccount.com \
+            BUCKET=b IMAGE=img ALLOWED_EMAILS=a@example.com,b@example.com timeout 30 ./infra/deploy.sh
+          cat "$RUNNER_TEMP/calls.txt"
+          grep -q -- '--min-instances=0 --max-instances=1 --cpu-throttling' "$RUNNER_TEMP/calls.txt"
+          grep -q -- '--tasks=1 --parallelism=1 --max-retries=0' "$RUNNER_TEMP/calls.txt"
+          ! grep -q -- 'allow-unauthenticated\|allUsers' "$RUNNER_TEMP/calls.txt"
+          grep -q -- '|MANIFEST_ALLOWED_EMAILS=a@example.com,b@example.com|' "$RUNNER_TEMP/calls.txt"
 
   engine:
     name: Engine (lint, types, tests on the real corpus)
@@ -70,9 +81,9 @@ jobs:
           curl -sSL -o /tmp/lychee.tgz https://github.com/lycheeverse/lychee/releases/download/lychee-v0.24.2/lychee-x86_64-unknown-linux-gnu.tar.gz
           mkdir -p ~/lychee && tar xzf /tmp/lychee.tgz -C ~/lychee
           echo "LYCHEE=$(find ~/lychee -name lychee -type f | head -1)" >> "$GITHUB_ENV"
-      - run: pip install -e '.[dev,sphinx,agent]'
+      - run: pip install -e '.[dev,sphinx,agent,cloud]'
       - run: ruff check .
-      - run: ruff format --check manifest tests
+      - run: ruff format --check manifest api tests
       - run: mypy
       - run: pytest -q
       - name: Migrate the TPU map end to end, with the approved rules
@@ -115,3 +126,39 @@ jobs:
           gcloud auth list
           gcloud artifacts repositories describe tw-images \
             --location="${{ vars.GCP_REGION }}" --format='value(name)'
+
+  image:
+    name: Container (build, migrate inside it, API health, size)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          load: true
+          tags: manifest:ci
+          provenance: false
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      - name: The whole toolchain works inside the image
+        run: |
+          docker run --rm manifest:ci manifest migrate corpus/tpu/tpu.ditamap --out /tmp/build --rules rules \
+            || status=$?
+          test "${status:-0}" -le 1
+      - name: The API starts and answers
+        run: |
+          docker run -d --name api -p 8080:8080 manifest:ci \
+            uvicorn --factory api.main:create_local_app --host 0.0.0.0 --port 8080
+          for _ in $(seq 30); do curl -sf localhost:8080/api/health && break; sleep 1; done
+          curl -sf localhost:8080/api/config | grep -q '"sign_in":false'
+          test "$(curl -s -o /dev/null -w '%{http_code}' -X POST localhost:8080/api/runs)" = 503
+          docker rm -f api
+      - name: Size against the Artifact Registry share (ADR 0008)
+        run: |
+          bytes=$(docker save manifest:ci | gzip -1 | wc -c)
+          mb=$((bytes / 1000000))
+          echo "Compressed image: ${mb} MB (Artifact Registry free tier 500 MB per billing account)" | tee -a "$GITHUB_STEP_SUMMARY"
+          test "$mb" -le 200

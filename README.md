@@ -7,12 +7,14 @@ lost content, and sends anything it can't fix to a technical writer.
 
 ## Status
 
-**The engine and the fix agent are built and pass on the sample map.**
+**The engine, the fix agent and the cloud runtime are built.**
 `manifest migrate` runs the five deterministic tools and writes a migration
 report. `manifest fix` adds the Gemini agent: for each topic that fails a check
 it proposes a mapping rule, the checks decide whether the rule works, and after
-two failed fixes the topic goes to a writer. The Cloud Run runtime, the console
-and the DITA help set are the next build steps.
+two failed fixes the topic goes to a writer. On Google Cloud, a Cloud Run job
+runs migrations and a scale-to-zero API serves runs, reports and rules
+([ADR 0008](docs/adr/0008-cloud-runtime.md)). The console and the DITA help set
+are the next build steps.
 
 On `corpus/tpu/tpu.ditamap` (24 published topics, 5 builds: unfiltered and one
 per DITAVAL file), with one approved rule:
@@ -66,6 +68,18 @@ manifest rules approve build/agent/proposed/RULE.json --by "Your Name"
 
 Proposed rules are in `build/agent/proposed/`, review issues in
 `build/agent/reviews/`, and every attempt in `build/agent/run.json`.
+
+### The cloud runtime
+
+One image runs both the migration job and the API. `deploy.yml` deploys it
+from `main` through Workload Identity Federation, with no keys
+([infra/README.md](infra/README.md)). To run the API on a laptop against
+memory:
+
+```sh
+pip install -e '.[sphinx,agent,cloud]'
+uvicorn --factory api.main:create_local_app   # then open http://127.0.0.1:8000/docs
+```
 
 ## The problem
 

@@ -22,8 +22,17 @@ from google.adk.models.llm_request import LlmRequest
 from google.adk.models.llm_response import LlmResponse
 from google.genai import types
 
-DEFAULT_MODEL = "gemini-3.8-flash"  # design doc §5; stable since 2026-09-02 (ADR 0007)
-FALLBACK_MODEL = "gemini-3.5-flash"  # stable, no shutdown before 2027-05-19
+from manifest.agent import DEFAULT_MODEL, FALLBACK_MODEL
+
+__all__ = [
+    "DEFAULT_MODEL",
+    "FALLBACK_MODEL",
+    "ModelError",
+    "Recorder",
+    "ReplayLlm",
+    "ScriptedLlm",
+    "make_model",
+]
 
 
 class ModelError(RuntimeError):

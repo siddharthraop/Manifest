@@ -199,7 +199,7 @@ def test_live_mode_needs_a_key_from_the_environment(monkeypatch: pytest.MonkeyPa
     monkeypatch.delenv("GEMINI_API_KEY", raising=False)
     with pytest.raises(ModelError, match="gcloud secrets versions access latest --secret=gemini-api-key"):
         make_model("live")
-    monkeypatch.setenv("GOOGLE_API_KEY", "test-not-a-key")
+    monkeypatch.setenv("GOOGLE_API_KEY", "AIza" + "0" * 35)  # shaped like a key, not a real one
     model, recorder = make_model("live")
     assert model == "gemini-3.8-flash" and recorder is None
 
@@ -211,3 +211,27 @@ def test_replay_and_unknown_modes_fail_clearly(tmp_path: Path) -> None:
         make_model("replay", recording=tmp_path / "missing.jsonl")
     with pytest.raises(ModelError, match="unknown mode"):
         make_model("guess")
+
+
+@pytest.mark.parametrize("value", [
+    "# 1. Copy the key in AI Studio (click its copy button), then:\npbpaste | gcloud secrets ...",
+    "AIzaShort", "AIza" + "x" * 35 + " trailing words",
+])  # fmt: skip
+def test_a_value_that_isnt_a_key_is_refused_without_showing_it(
+    monkeypatch: pytest.MonkeyPatch, value: str
+) -> None:
+    monkeypatch.delenv("GEMINI_API_KEY", raising=False)
+    monkeypatch.setenv("GOOGLE_API_KEY", value)
+    with pytest.raises(ModelError, match="isn't shaped like a key") as err:
+        make_model("live")
+    assert value not in str(err.value) and "pbpaste" not in str(err.value)
+
+
+def test_key_values_are_redacted_from_errors() -> None:
+    from manifest.agent import redact
+
+    key = "AIza" + "Q" * 35
+    bad = "# copy\npbpaste | gcloud secrets versions add"
+    assert redact(f"401 for key={key}", {"GOOGLE_API_KEY": key}) == "401 for key=[redacted]"
+    echoed = f"Illegal header value {bad.encode()!r}"
+    assert "pbpaste" not in redact(echoed, {"GOOGLE_API_KEY": bad})

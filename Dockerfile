@@ -47,7 +47,8 @@ FROM python:${PYTHON}
 LABEL org.opencontainers.image.source="https://github.com/siddharthraop/Manifest" \
       org.opencontainers.image.licenses="MIT"
 COPY --from=jre /opt/jre /opt/jre
-COPY --from=tools /opt/dita-ot /opt/dita-ot
+# --chown at copy time: a later `chown -R` would store DITA-OT a second time as a new layer.
+COPY --from=tools --chown=10001:10001 /opt/dita-ot /opt/dita-ot
 COPY --from=tools /opt/lychee/lychee /usr/local/bin/lychee
 COPY --from=deps /opt/venv /opt/venv
 ENV JAVA_HOME=/opt/jre DITA_HOME=/opt/dita-ot LYCHEE=/usr/local/bin/lychee MANIFEST_ROOT=/app \
@@ -56,6 +57,6 @@ WORKDIR /app
 COPY corpus corpus
 COPY rules rules
 COPY recordings recordings
-RUN useradd --uid 10001 --no-create-home manifest && chown -R manifest /opt/dita-ot
+RUN useradd --uid 10001 --no-create-home manifest
 USER manifest
 CMD ["python", "-m", "manifest.cloud"]

@@ -136,8 +136,9 @@ def fix_map(
     lychee: str | None = None,
     max_attempts: int = 2,
     open_issues: bool = False,
+    run_id: str | None = None,
 ) -> dict[str, Any]:
-    run_id = dt.datetime.now(dt.UTC).strftime("%Y%m%dT%H%M%SZ")
+    run_id = run_id or dt.datetime.now(dt.UTC).strftime("%Y%m%dT%H%M%SZ")
     approved = load_rules(rules_dir) if rules_dir else []
     base = out / "baseline"
     report = migrate(map_path, base, dita, lychee, RuleSet(approved) if approved else None)

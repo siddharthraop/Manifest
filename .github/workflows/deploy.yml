@@ -1,0 +1,73 @@
+name: deploy
+
+# Build the image, push it to Artifact Registry and deploy the Cloud Run job and API service,
+# all keyless: GitHub's OIDC token is exchanged through Workload Identity Federation for the
+# tw-deploy service account (ADR 0001). Runs from main only, one deploy at a time.
+# Then one migrate run proves the deployed job end to end and leaves a run for the console.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  id-token: write   # the OIDC token for Workload Identity Federation
+
+env:
+  IMAGE_REPO: ${{ vars.GCP_REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT }}/${{ vars.GCP_AR_REPO }}/manifest
+
+jobs:
+  deploy:
+    name: Build, push, deploy, smoke run
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+      - uses: google-github-actions/auth@v3
+        with:
+          project_id: ${{ vars.GCP_PROJECT }}
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_DEPLOY_SA }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - run: gcloud auth configure-docker "${{ vars.GCP_REGION }}-docker.pkg.dev" --quiet
+      - uses: docker/setup-buildx-action@v3
+      - id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: ${{ env.IMAGE_REPO }}:${{ github.sha }}
+          provenance: false   # one manifest, not an index: one version against the keep-1 cleanup
+          labels: org.opencontainers.image.revision=${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      - name: Size against the Artifact Registry share (ADR 0008)
+        run: |
+          bytes=$(docker buildx imagetools inspect --raw "$IMAGE_REPO@${{ steps.build.outputs.digest }}" \
+            | jq '[.layers[].size] | add')
+          echo "Stored image: $((bytes / 1000000)) MB compressed" | tee -a "$GITHUB_STEP_SUMMARY"
+          test "$bytes" -le 200000000
+      - name: Deploy the job and the service
+        env:
+          PROJECT: ${{ vars.GCP_PROJECT }}
+          REGION: ${{ vars.GCP_REGION }}
+          RUNTIME_SA: ${{ vars.GCP_RUNTIME_SA }}
+          BUCKET: ${{ vars.GCP_BUCKET }}
+          IMAGE: ${{ env.IMAGE_REPO }}@${{ steps.build.outputs.digest }}
+          OAUTH_CLIENT_ID: ${{ vars.MANIFEST_OAUTH_CLIENT_ID }}
+          ALLOWED_EMAILS: ${{ vars.MANIFEST_ALLOWED_EMAILS }}
+        run: |
+          url=$(./infra/deploy.sh | tail -1)
+          echo "API: $url" | tee -a "$GITHUB_STEP_SUMMARY"
+      - name: Smoke run (migrate mode, no Gemini)
+        run: |
+          run_id="deploy-$(date -u +%Y%m%dT%H%M%SZ)"
+          gcloud run jobs execute manifest-migrate --project="${{ vars.GCP_PROJECT }}" \
+            --region="${{ vars.GCP_REGION }}" --wait \
+            --update-env-vars="MANIFEST_RUN_ID=${run_id},MANIFEST_MODE=migrate,MANIFEST_TRIGGERED_BY=deploy.yml"
+          echo "Smoke run: $run_id" | tee -a "$GITHUB_STEP_SUMMARY"

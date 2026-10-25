@@ -145,3 +145,16 @@ def test_a_passing_fix_is_proposed_and_a_writers_decision_stands(tmp_path: Path)
     )
     assert store.get("rules", "old-rule")["status"] == "rejected"
     assert store.list("rules", status="approved") == []
+
+
+def test_a_live_run_with_a_bad_key_fails_fast_and_stores_no_key(tmp_path: Path) -> None:
+    store = MemoryStore()
+    env = {
+        "MANIFEST_RUN_ID": "r7",
+        "MANIFEST_MODE": "live",
+        "GOOGLE_API_KEY": "# 1. Copy the key\npbpaste | gcloud",
+    }
+    with pytest.raises(Exception, match="isn't shaped like a key"):
+        run_job(store, LocalBlobs(tmp_path / "b"), env, tmp_path / "w", CORPUS, repo_rules=tmp_path / "none")
+    run = store.get("runs", "r7")
+    assert run["status"] == "failed" and "pbpaste" not in run["error"] and run["duration_s"] < 5

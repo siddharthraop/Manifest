@@ -1,18 +1,85 @@
 # MANIFEST
 
-MANIFEST is a design for an agent that migrates DITA XML documentation to
-docs as code. It converts a DITA map to MyST Markdown, checks every topic for
+MANIFEST migrates DITA XML documentation to docs as code. It converts a DITA map to MyST Markdown, checks every topic for
 lost content, and sends anything it can't fix to a technical writer.
 
 **[Read the design document](https://siddharthraop.github.io/Manifest/)**
 
 ## Status
 
-This project is in the design phase. The design document is complete. The
-agent is not built yet, and this repository contains no runnable code.
+**The engine, the fix agent and the cloud runtime are built.**
+`manifest migrate` runs the five deterministic tools and writes a migration
+report. `manifest fix` adds the Gemini agent: for each topic that fails a check
+it proposes a mapping rule, the checks decide whether the rule works, and after
+two failed fixes the topic goes to a writer. On Google Cloud, a Cloud Run job
+runs migrations and a scale-to-zero API serves runs, reports and rules
+([ADR 0008](docs/adr/0008-cloud-runtime.md)). The console and the DITA help set
+are the next build steps.
 
-The simulator in the design document is scripted. It shows how the agent is
-designed to behave. It doesn't call Gemini or DITA-OT.
+On `corpus/tpu/tpu.ditamap` (24 published topics, 5 builds: unfiltered and one
+per DITAVAL file), with one approved rule:
+
+| Design doc §7 metric | Target | Measured |
+| --- | --- | --- |
+| Unreported losses | 0 | 0 |
+| Topics checked | 100% | 100% (114 comparisons with DITA-OT HTML5) |
+| Reuse kept | 100% of mapped features | 100% (12 conrefs, 168 key references) |
+| IDs kept | 100% | 100% (53 IDs, in DITA-OT's anchor form) |
+| Broken links | 0 | 0 (3,187 links; 114 old URLs) |
+| Topics passed without a writer | Set from the first run | 23 of 24 |
+| Fixes approved | Tracked | 1 approved |
+
+With no rules, one topic fails: a task with a `<choicetable>` and a
+`<hazardstatement>`, which DITA-OT's Markdown writer mangles. That is the
+agent's job ([ADR 0007](docs/adr/0007-the-fix-agent.md)). The one topic for a
+writer has an `<object>` video that DITA-OT's Markdown writer drops without a
+warning. On the way, the checks found four losses that a plain DITA-OT
+conversion ships, and two issues in the source map. See [the ADRs](docs/adr/).
+
+## Quick start
+
+You need Python 3.11+, Java 17+, [DITA-OT 4.4](https://www.dita-ot.org/download)
+and [lychee](https://github.com/lycheeverse/lychee).
+
+```sh
+git clone --recurse-submodules https://github.com/siddharthraop/Manifest.git
+cd Manifest
+pip install -e '.[sphinx]'
+export DITA_HOME=/path/to/dita-ot-4.4 LYCHEE=/path/to/lychee
+manifest migrate corpus/tpu/tpu.ditamap
+```
+
+Open `build/report/report.html` for the report, and `build/myst/` for the
+migrated Sphinx project. Each tool also runs on its own: `manifest inventory`,
+`convert`, `restore`, `check` and `links`.
+
+### The fix agent
+
+```sh
+pip install -e '.[sphinx,agent]'
+# live: Gemini, with the key read from Secret Manager for this one command, every response recorded
+GOOGLE_API_KEY="$(gcloud secrets versions access latest --secret=gemini-api-key)" \
+  manifest fix corpus/tpu/tpu.ditamap --mode live --recording recordings/tpu.jsonl
+# replay: the same run from the recording, with no key and no cost
+manifest fix corpus/tpu/tpu.ditamap --mode replay --recording recordings/tpu.jsonl
+# a writer approves a proposed rule; from then on migrate applies it without Gemini
+manifest rules approve build/agent/proposed/RULE.json --by "Your Name"
+```
+
+Proposed rules are in `build/agent/proposed/`, review issues in
+`build/agent/reviews/`, and every attempt in `build/agent/run.json`.
+
+### The cloud runtime
+
+One image runs both the migration job and the API. `deploy.yml` deploys it
+from `main` through Workload Identity Federation, with no keys
+([infra/README.md](infra/README.md)). To run the API on a laptop against
+memory:
+
+```sh
+pip install -e '.[sphinx,agent,cloud]'
+uvicorn --factory api.main:create_local_app   # then open http://127.0.0.1:8000/docs
+```
 
 ## The problem
 
@@ -56,8 +123,8 @@ result.
 | Content reference (conref) | Include file, written once | Includes in the output equal conrefs in the source |
 | Key reference | Substitution | Substitutions equal key references |
 | Conditional content | `only` block with build tags | Text matches DITA-OT output for the same DITAVAL file |
-| Element ID | Target | Every source ID is an anchor |
-| Specialized elements | No rule | Sent to a writer for review |
+| Element ID | Anchor in DITA-OT's form (`topicid__elemid`) | Every published ID is an anchor; old URLs resolve |
+| Elements with no rule (`<object>`, conref push) | None | Sent to a writer for review |
 
 ## Technology
 
@@ -85,12 +152,15 @@ The design document is a single HTML file with no build step.
 
 ## Repository contents
 
-| File | Description |
+| Path | Description |
 | --- | --- |
+| `manifest/` | The engine: the five tools, the report and the `manifest` CLI |
+| `tests/` | One test file per user story (`test_us01_report.py` …), per metric and per tool |
+| `corpus/` | The [dita-corpus](https://github.com/siddharthraop/dita-corpus) sample, pinned as a submodule |
+| `infra/` | One-time Google Cloud setup (`setup.sh`) |
+| `docs/adr/` | Architecture decision records |
 | `index.html` | The design document, published with GitHub Pages |
-| `README.md` | This file |
-| `LICENSE` | MIT License |
-| `.gitignore` | Files that Git doesn't track |
+| `.github/workflows/ci.yml` | Lint, types, tests and the end-to-end migration gate |
 
 ## Sample content and attribution
 
@@ -105,7 +175,7 @@ it. Stakeholders in the design document are job roles, not real people.
 
 ## Contact
 
-Siddharth Rao ([@raosiddharthp](https://github.com/raosiddharthp)). To report
+Siddharth Rao ([@siddharthraop](https://github.com/siddharthraop)). To report
 a problem or ask a question, open an
 [issue](https://github.com/siddharthraop/Manifest/issues).
 

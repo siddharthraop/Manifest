@@ -1,0 +1,11 @@
+{
+  "id": "hazardstatement-to-simpletable",
+  "match": "hazardstatement",
+  "status": "approved",
+  "description": "A hazard statement becomes a two-row simple table: the hazard type as the header, then the message panel.",
+  "xslt": "<xsl:template match=\"hazardstatement\"><simpletable><xsl:apply-templates select=\"@id\"/><sthead><stentry><xsl:value-of select=\"translate(@type,'abcdefghijklmnopqrstuvwxyz','ABCDEFGHIJKLMNOPQRSTUVWXYZ')\"/></stentry></sthead><strow><stentry><xsl:apply-templates select=\"messagepanel/*\"/></stentry></strow></simpletable></xsl:template>\n<xsl:template match=\"typeofhazard|consequence|howtoavoid\"><p><xsl:apply-templates select=\"node()\"/></p></xsl:template>",
+  "provenance": {
+    "proposed_by": "hand-written test fixture (a stand-in for a Gemini proposal)",
+    "approved_by": "test suite"
+  }
+}

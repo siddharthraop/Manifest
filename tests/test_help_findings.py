@@ -47,3 +47,11 @@ def test_tasks_with_several_steps_keep_their_list() -> None:
                  '</steps></taskbody></task>')  # fmt: skip
     tokenize(root, Ledger(), "t.dita")
     assert root.find(".//steps") is not None
+
+
+def test_a_one_step_task_keeps_the_steps_condition() -> None:
+    root = parse('<task id="t"><title>T</title><taskbody><steps><step platform="v5e"><cmd>Only on v5e.</cmd></step>'
+                 '</steps></taskbody></task>')  # fmt: skip
+    tokenize(root, Ledger(), "t.dita")
+    informal = root.find(".//steps-informal")
+    assert informal is not None and informal.get("platform") == "v5e"

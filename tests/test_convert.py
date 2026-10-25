@@ -45,7 +45,8 @@ def test_condition_markers_never_go_inside_an_inline_key() -> None:
     resolved the key and the marker vanished."""
     xml = (
         '<task id="t"><title>T</title><taskbody><steps><step platform="v5e"><cmd>Run:</cmd><info>'
-        '<codeblock>--version=<keyword keyref="v5e-runtime"/></codeblock></info></step></steps></taskbody></task>'
+        '<codeblock>--version=<keyword keyref="v5e-runtime"/></codeblock></info></step><step><cmd>Next.</cmd></step></steps>'
+        "</taskbody></task>"
     )
     out, led = tok(xml)
     assert "--version=@@K2@@@@E1@@</codeblock>" in out
@@ -64,7 +65,7 @@ def test_marker_skips_a_child_that_will_be_replaced_by_a_conref() -> None:
     """Regression: the step's last text element was a conref note; its end marker was wiped."""
     xml = (
         '<task id="t"><title>T</title><taskbody><steps><step platform="tpu7x"><cmd>Create.</cmd><info>'
-        '<note conref="w.dita#w/n"/></info></step></steps></taskbody></task>'
+        '<note conref="w.dita#w/n"/></info></step><step><cmd>Next.</cmd></step></steps></taskbody></task>'
     )
     out, _ = tok(xml)
     assert "<note>@@C2@@</note>@@E1@@</info>" in out
@@ -185,7 +186,7 @@ def test_optional_step_keeps_its_label() -> None:
     """DITA-OT HTML5 shows 'Optional:'; its Markdown writer drops it, hiding that the step is optional."""
     out, _ = tok(
         '<task id="t"><title>T</title><taskbody><steps><step importance="optional"><cmd>Add a flag.</cmd>'
-        "</step></steps></taskbody></task>"
+        "</step><step><cmd>Next.</cmd></step></steps></taskbody></task>"
     )
     assert "<cmd><b>Optional:</b> Add a flag.</cmd>" in out
 

@@ -222,6 +222,9 @@ def _single_step_informal(root: etree._Element) -> None:
         if len(kids) != 1 or kids[0].tag != "step":
             continue
         step, informal = kids[0], etree.Element("steps-informal")
+        for name, value in step.attrib.items():  # conditions on the step (@platform, @audience…) still apply
+            if name not in ("id", "importance"):
+                informal.set(name, value)
         for part in step:
             if not isinstance(part.tag, str):
                 continue

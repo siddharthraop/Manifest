@@ -158,7 +158,10 @@ jobs:
           docker rm -f api
       - name: Size against the Artifact Registry share (ADR 0008)
         run: |
-          bytes=$(docker save manifest:ci | gzip -1 | wc -c)
+          bytes=$(docker save manifest:ci | gzip -6 | wc -c)
           mb=$((bytes / 1000000))
-          echo "Compressed image: ${mb} MB (Artifact Registry free tier 500 MB per billing account)" | tee -a "$GITHUB_STEP_SUMMARY"
+          layers=$(docker history --no-trunc --format '{{.Size}} {{.CreatedBy}}' manifest:ci | grep -v '^0B' \
+            | cut -c1-90 | sed 's/%/%25/g' | tr '\n' ';')
+          echo "::notice title=Image size::${mb} MB compressed. Layers: ${layers}"
+          echo "Compressed image: ${mb} MB (Artifact Registry free tier 500 MB per billing account)" >> "$GITHUB_STEP_SUMMARY"
           test "$mb" -le 200

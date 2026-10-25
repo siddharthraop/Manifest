@@ -3,7 +3,7 @@
 <map id="manifest-keys" xml:lang="en-US">
   <title>MANIFEST help keys</title>
   <keydef keys="product"><topicmeta><keywords><keyword>MANIFEST</keyword></keywords></topicmeta></keydef>
-  <keydef keys="version"><topicmeta><keywords><keyword>1.0.0</keyword></keywords></topicmeta></keydef>
+  <keydef keys="version"><topicmeta><keywords><keyword>1.1.0</keyword></keywords></topicmeta></keydef>
   <keydef keys="model"><topicmeta><keywords><keyword>gemini-3.8-flash</keyword></keywords></topicmeta></keydef>
   <keydef keys="dita-ot"><topicmeta><keywords><keyword>DITA-OT 4.4</keyword></keywords></topicmeta></keydef>
   <keydef keys="max-fixes"><topicmeta><keywords><keyword>two</keyword></keywords></topicmeta></keydef>

@@ -6,6 +6,7 @@
   <mapref href="keys/manifest-keys.ditamap" processing-role="resource-only"/>
   <topicref href="topics/gs-overview.dita">
     <topicref href="topics/gs-first-migration.dita"/>
+    <topicref href="topics/t-migrate-your-dita.dita"/>
   </topicref>
   <topichead navtitle="Concepts">
     <topicref href="topics/c-fidelity.dita"/>
@@ -49,6 +50,6 @@
     <relrow><relcell><topicref href="topics/c-fidelity.dita"/></relcell><relcell><topicref href="topics/t-read-run.dita"/></relcell><relcell><topicref href="topics/r-checks.dita"/></relcell></relrow>
     <relrow><relcell><topicref href="topics/c-reuse-ledger.dita"/><topicref href="topics/c-placeholders.dita"/></relcell><relcell><topicref href="topics/t-read-run.dita"/></relcell><relcell><topicref href="topics/r-report-schema.dita"/></relcell></relrow>
     <relrow><relcell><topicref href="topics/c-mapping-rules.dita"/><topicref href="topics/c-hitl.dita"/></relcell><relcell><topicref href="topics/t-review-failed-topic.dita"/><topicref href="topics/t-approve-fix.dita"/></relcell><relcell><topicref href="topics/r-cli.dita"/></relcell></relrow>
-    <relrow><relcell><topicref href="topics/gs-overview.dita"/></relcell><relcell><topicref href="topics/t-run-migration.dita"/><topicref href="topics/t-sign-in.dita"/></relcell><relcell><topicref href="topics/r-configuration.dita"/><topicref href="topics/r-api.dita"/></relcell></relrow>
+    <relrow><relcell><topicref href="topics/gs-overview.dita"/></relcell><relcell><topicref href="topics/t-migrate-your-dita.dita"/><topicref href="topics/t-run-migration.dita"/><topicref href="topics/t-sign-in.dita"/></relcell><relcell><topicref href="topics/r-configuration.dita"/><topicref href="topics/r-api.dita"/></relcell></relrow>
   </reltable>
 </map>

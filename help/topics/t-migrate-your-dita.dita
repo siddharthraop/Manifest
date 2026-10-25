@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE task PUBLIC "-//OASIS//DTD DITA Task//EN" "task.dtd">
+<task id="t-migrate-your-dita" xml:lang="en-US">
+  <title>Migrate your own DITA</title>
+  <shortdesc>Upload a .zip of DITA and get back MyST Markdown for Sphinx, with a report that names every difference
+    from your published DITA. No sign-in is needed.</shortdesc>
+  <prolog><resourceid appname="manifest-console" appid="upload"/></prolog>
+  <taskbody>
+    <prereq><p>A .zip of up to 10 MB with your root map, its topics, key maps, DITAVAL files and images, in the folders
+      they use. Topics must use the OASIS DITA DTDs; files that declare entities are refused.</p></prereq>
+    <steps>
+      <step><cmd>In <xref keyref="console"/>, select <uicontrol>Migrate your DITA</uicontrol>.</cmd></step>
+      <step><cmd>Choose your .zip and, if it holds more than one map, type the root map's path inside it.</cmd></step>
+      <step><cmd>Select <uicontrol>Migrate</uicontrol>.</cmd><stepresult><p>The run page shows each stage as it runs:
+        unpack, inventory, convert, restore, check, links and report.</p></stepresult></step>
+      <step><cmd>When the run finishes, select <uicontrol>Download docs as code (.zip)</uicontrol>.</cmd>
+        <info><p>The download holds the Sphinx project in <filepath>myst</filepath>, the report, the redirects for old
+          URLs, and a README that lists every topic that isn't clean and why.</p></info></step>
+    </steps>
+    <result><p>Topics that pass every check are ready to merge. A topic that failed a check, or needs a writer, is still
+      in the download; the report shows exactly what differs, so nothing is lost without you knowing.</p></result>
+  </taskbody>
+</task>

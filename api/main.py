@@ -14,7 +14,7 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Annotated, Any, Protocol
 
-from fastapi import Depends, FastAPI, Header, HTTPException, Query, Response
+from fastapi import Depends, FastAPI, Header, HTTPException, Query, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
@@ -22,6 +22,7 @@ from manifest import __version__
 from manifest.agent import DEFAULT_MODEL
 from manifest.cloud import MODES, list_maps, new_run_id
 from manifest.store import Blobs, LocalBlobs, MemoryStore, NotFound, Store, now
+from manifest.uploads import MAX_ZIP, UploadError, check_zip
 
 ACTIVE_STATUSES = ("queued", "running")
 SAFE_PATH = re.compile(r"^(?!.*\.\.)[A-Za-z0-9._/-]{1,300}$")
@@ -115,6 +116,7 @@ def create_app(
     launcher: Launcher,
     maps: Callable[[], list[str]] = list_maps,
     origins: list[str] | None = None,
+    public_runs_per_day: int = 10,
 ) -> FastAPI:
     app = FastAPI(
         title="MANIFEST API",
@@ -162,6 +164,7 @@ def create_app(
             "modes": list(MODES),
             "model": DEFAULT_MODEL,
             "version": __version__,
+            "uploads": {"max_mb": MAX_ZIP // 1024 // 1024, "runs_per_day": public_runs_per_day},
         }
 
     @app.get("/api/maps", tags=["runs"])
@@ -196,6 +199,86 @@ def create_app(
         if ctype.startswith("text/html"):
             headers["Content-Security-Policy"] = REPORT_CSP
         return Response(data, media_type=ctype, headers=headers)
+
+    @app.post("/api/uploads", status_code=202, tags=["runs"])
+    async def upload(request: Request, map: str = "", name: str = "upload.zip") -> dict[str, Any]:
+        """Migrate your own DITA: send a .zip as the request body (Content-Type: application/zip).
+        `map` names the root map inside the .zip; without it, the shallowest .ditamap is used.
+        Anyone may upload; uploads share one queue and a daily limit with every other public run."""
+        data = await request.body()
+        if len(data) > MAX_ZIP:
+            raise HTTPException(413, f"The .zip is larger than {MAX_ZIP // 1024 // 1024} MB.")
+        try:
+            candidates = check_zip(data)
+        except UploadError as exc:
+            raise HTTPException(422, str(exc)) from exc
+        root = map.strip().lstrip("/") or candidates[0]
+        if root not in candidates:
+            raise HTTPException(422, f"{root} isn't in the .zip. It has: {', '.join(candidates[:10])}")
+        guard_queue()
+        run_id = new_run_id()
+        label = f"{Path(name).name or 'upload.zip'}: {root}"
+        blobs.write(f"uploads/{run_id}.zip", data, "application/zip")
+        store.put(
+            "runs",
+            run_id,
+            {
+                "map": label,
+                "mode": "migrate",
+                "status": "queued",
+                "queued_at": now(),
+                "triggered_by": "public",
+                "upload": True,
+            },
+            "public",
+            "run.queue",
+        )
+        return start(
+            run_id,
+            {
+                "MANIFEST_RUN_ID": run_id,
+                "MANIFEST_MAP": label,
+                "MANIFEST_MODE": "migrate",
+                "MANIFEST_TRIGGERED_BY": "public",
+                "MANIFEST_UPLOAD": f"uploads/{run_id}.zip",
+                "MANIFEST_UPLOAD_MAP": root,
+            },
+            "public",
+        )
+
+    def guard_queue() -> None:
+        active = [r for s in ACTIVE_STATUSES for r in store.list("runs", limit=5, status=s)]
+        if active:
+            raise HTTPException(
+                409,
+                f"Run {active[0]['id']} is still {active[0]['status']}. One run at a time "
+                "keeps this demo inside the free tier; try again in a few minutes.",
+            )
+        today = now()[:10]
+        used = [
+            r
+            for r in store.list("runs", limit=500, triggered_by="public")
+            if str(r.get("queued_at", "")).startswith(today)
+        ]
+        if len(used) >= public_runs_per_day:
+            raise HTTPException(
+                429, f"Today's {public_runs_per_day} public runs are used up. Try again tomorrow (UTC)."
+            )
+
+    def start(run_id: str, env: dict[str, str], actor: str) -> dict[str, Any]:
+        try:
+            execution = launcher.run(env)
+        except Exception as exc:
+            store.merge(
+                "runs",
+                run_id,
+                {"status": "failed", "error": f"couldn't start the job: {exc}"[:1000]},
+                actor,
+                "run.fail",
+            )
+            raise HTTPException(502, "The migration job couldn't be started.") from exc
+        store.merge("runs", run_id, {"execution": execution}, actor, "run.execute")
+        return {"id": run_id, "status": "queued", "execution": execution}
 
     @app.post("/api/runs", status_code=202, tags=["runs"])
     def start_run(body: StartRun, user: User) -> dict[str, Any]:

@@ -207,7 +207,7 @@ CSS = """
 @font-face{font-family:'IBM Plex Sans';src:url(assets/fonts/IBMPlexSans.woff2) format('woff2');font-weight:100 700}
 @font-face{font-family:'Courier Prime';src:url(assets/fonts/CourierPrime.woff2) format('woff2')}
 @font-face{font-family:'Caveat';src:url(assets/fonts/Caveat.woff2) format('woff2')}
-:root{--paper:#FAF8F3;--paper-deep:#F2EEE4;--paper-hover:#EFE9DC;--ink:#1C1A17;--ink-body:#29251F;
+:root{--paper:#FFFFFF;--paper-deep:#F2EEE4;--paper-hover:#EFE9DC;--ink:#1C1A17;--ink-body:#29251F;
 --ink-soft:#5C5650;--stamp:#8C3D2E;--stamp-soft:#B06650;--stamp-tint:#C9A98F;--rule:#DDD6CB;--radius:2px;
 --band-bg:#1C1A17;--band-fg:#FAF8F3;--f-scan:'IBM Plex Sans',system-ui,sans-serif;--f-type:'Courier Prime',ui-monospace,monospace;--f-script:'Caveat',cursive}
 @media (prefers-color-scheme:dark){:root:not([data-theme=light]){--paper:#1C1A17;--paper-deep:#24211D;

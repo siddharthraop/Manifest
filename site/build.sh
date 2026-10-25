@@ -14,7 +14,8 @@ OUT="${1:-_site}"
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 WORK="$(mktemp -d)"
 cd "$ROOT"
-rm -rf "$OUT" && mkdir -p "$OUT"/{app,help,migrated,corpus,design}
+rm -rf "$OUT" && mkdir -p "$OUT"/{app,help,migrated,design}
+OUT="$(cd "$OUT" && pwd)"
 
 cp site/index.html "$OUT/index.html"
 cp design/index.html "$OUT/design/index.html"
@@ -28,8 +29,12 @@ python help/tools/openapi2dita.py --check
 "$DITA_HOME/bin/dita" -i help/manifest-help.ditamap -f html5 -o "$OUT/help" --processing-mode=strict
 python help/tools/build_csh.py "$OUT/help"
 
-echo "Corpus source for the console"
-cp -r corpus/tpu corpus/media "$OUT/corpus/"
+echo "Source for the console's side-by-side view, and sample uploads"
+mkdir -p "$OUT/source/corpus" "$OUT/samples"
+cp -r corpus/tpu corpus/media "$OUT/source/corpus/"
+cp -r help "$OUT/source/help"
+(cd corpus && zip -qr "$OUT/samples/tpu-dita.zip" tpu media)
+(cd help && zip -qr "$OUT/samples/manifest-help-dita.zip" manifest-help.ditamap keys reuse topics)
 
 for pair in "tpu:corpus/tpu/tpu.ditamap" "help:help/manifest-help.ditamap"; do
   name="${pair%%:*}" map="${pair#*:}"

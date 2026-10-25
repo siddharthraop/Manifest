@@ -41,6 +41,7 @@ class Store(Protocol):
 class Blobs(Protocol):
     def upload_dir(self, local: Path, prefix: str) -> list[str]: ...
     def read(self, path: str) -> tuple[bytes, str]: ...
+    def write(self, path: str, data: bytes, content_type: str) -> None: ...
 
 
 # ---------------------------------------------------------------- in memory (tests, laptop)
@@ -84,6 +85,11 @@ class MemoryStore:
 class LocalBlobs:
     def __init__(self, root: Path) -> None:
         self.root = root
+
+    def write(self, path: str, data: bytes, content_type: str) -> None:
+        target = self.root / path
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_bytes(data)
 
     def upload_dir(self, local: Path, prefix: str) -> list[str]:
         dest = self.root / prefix
@@ -153,6 +159,9 @@ class GcsBlobs:
         from google.cloud import storage  # type: ignore[attr-defined]
 
         self.bucket = storage.Client(project=project).bucket(bucket.removeprefix("gs://"))
+
+    def write(self, path: str, data: bytes, content_type: str) -> None:
+        self.bucket.blob(path).upload_from_string(data, content_type=content_type)
 
     def upload_dir(self, local: Path, prefix: str) -> list[str]:
         names = []

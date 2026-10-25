@@ -20,6 +20,7 @@ from __future__ import annotations
 import datetime as dt
 import json
 import os
+import secrets
 import shutil
 import sys
 import tempfile
@@ -46,7 +47,8 @@ class JobError(ValueError):
 
 
 def new_run_id() -> str:
-    return dt.datetime.now(dt.UTC).strftime("%Y%m%dT%H%M%SZ")
+    """Time-ordered and unique: two runs started in the same second get different IDs."""
+    return dt.datetime.now(dt.UTC).strftime("%Y%m%dT%H%M%SZ") + "-" + secrets.token_hex(2)
 
 
 def _map_roots(corpus: Path) -> list[Path]:
@@ -141,7 +143,25 @@ def run_job(
         def show_stage(name: str) -> None:
             store.merge("runs", run_id, {"stage": name}, ACTOR, "run.progress")
 
-        map_path = resolve_map(map_value, corpus)
+        upload = env.get("MANIFEST_UPLOAD", "")
+        if upload:  # the user's own DITA: unpack it safely and migrate it (no agent)
+            from manifest.uploads import extract, find_map
+
+            show_stage("unpack")
+            data, _ = blobs.read(upload)
+            src = work / "src"
+            map_path = find_map(src, env.get("MANIFEST_UPLOAD_MAP", ""), extract(data, src))
+            mode = "migrate"
+            blobs.upload_dir(src, f"runs/{run_id}/source")  # so the console can show source beside MyST
+            store.merge(
+                "runs",
+                run_id,
+                {"source_prefix": f"source/{map_path.parent.relative_to(src)}".rstrip("/.")},
+                ACTOR,
+                "run.progress",
+            )
+        else:
+            map_path = resolve_map(map_value, corpus)
         if mode == "live":
             check_api_key(env)  # before minutes of migration, not after
         rules_dir = work / "rules"
@@ -167,6 +187,9 @@ def run_job(
 
         stage = work / "stage"
         _stage(out, stage)
+        from manifest.uploads import result_zip
+
+        result_zip(out, stage / "result.zip")
         files = blobs.upload_dir(stage, f"runs/{run_id}")
 
         for path in sorted((out / "agent" / "proposed").glob("*.json")):

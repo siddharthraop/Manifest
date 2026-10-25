@@ -3,6 +3,16 @@
 All notable changes. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow
 [Semantic Versioning](https://semver.org/).
 
+## [1.1.0] - 2026-10-25
+
+### Added
+- Migrate your own DITA: upload a .zip in the console (no sign-in) and download the MyST project, the report and the
+  redirects, with a README naming every topic that isn't clean (ADR 0010).
+- Live progress on the run page; sample .zip files on the site; white page background.
+
+### Fixed
+- Two runs started in the same second could share an ID.
+
 ## [1.0.0] - 2026-10-25
 
 ### Added

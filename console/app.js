@@ -53,7 +53,7 @@
 
   // ------------------------------------------------------------ sign-in (Google Identity Services)
   function renderWho() {
-    $("#who").textContent = user ? `Signed in as ${user}` : (config.sign_in ? "" : "Read-only deployment");
+    $("#who").textContent = user ? `Signed in as ${user}` : "";
     const box = $("#signin");
     if (!config.sign_in) { box.innerHTML = ""; return; }
     if (user) { box.innerHTML = `<button class="btn" type="button" id="signout">Sign out</button>`; $("#signout").onclick = signOut; return; }
@@ -117,6 +117,27 @@
       </tbody></table></div>`;
   }
 
+  screens.migrate = async () => {
+    helpId = "upload";
+    const up = config.uploads || { max_mb: 10, runs_per_day: 10 };
+    return `<h1>Migrate your DITA ${helpBtn("upload", "Migrate your DITA")}</h1>
+      <p>Upload a <code>.zip</code> of DITA: your root map, its topics, key maps, DITAVAL files and images. MANIFEST converts it to
+        MyST Markdown for Sphinx, then checks every topic against DITA-OT's own HTML5 output of your source, in every build.
+        You get the docs-as-code files and a report that names every difference: <b>nothing that differs goes unreported</b>.</p>
+      <form id="upload-form" class="card" style="max-width:640px">
+        <p><label for="zip"><b>DITA .zip</b> (up to ${esc(up.max_mb)} MB)</label><br><input id="zip" type="file" accept=".zip,application/zip" required></p>
+        <p><label for="rootmap"><b>Root map inside the .zip</b> (optional, for example <code>docs/product.ditamap</code>)</label><br>
+          <input id="rootmap" type="text" size="48" placeholder="The shallowest .ditamap is used if you leave this empty"></p>
+        <p><button class="btn btn-fill" type="submit" id="upload-btn">Migrate</button></p>
+        <div id="msg" aria-live="polite"></div>
+      </form>
+      <h2>No DITA to hand? Try a sample</h2>
+      <ul><li><a href="${esc(CFG.site)}samples/tpu-dita.zip" download>Cloud TPU sample set</a> (24 topics, keys, conrefs, 4 DITAVAL builds). Root map: <code>tpu/tpu.ditamap</code></li>
+        <li><a href="${esc(CFG.site)}samples/manifest-help-dita.zip" download>MANIFEST's own help</a> (28 topics). Root map: <code>manifest-help.ditamap</code></li></ul>
+      <p class="meta">Uploads are public sample migrations: one run at a time, ${esc(up.runs_per_day)} a day, so the demo stays inside the free tier.
+        Files are kept with the run so its report can be read. Don't upload confidential content.</p>`;
+  };
+
   screens.maps = async () => {
     helpId = "maps";
     const maps = await api("/api/maps");
@@ -136,6 +157,15 @@
   screens.run = async (id, params) => {
     helpId = "run-detail";
     const run = await api(`/api/runs/${encodeURIComponent(id)}`);
+    if (run.status === "queued" || run.status === "running") {
+      clearTimeout(window.__poll); window.__poll = setTimeout(() => { if (location.hash.includes(id)) route(); }, 8000);
+      const stages = ["unpack", "inventory", "convert", "restore", "check", "links", "report"];
+      const at = stages.indexOf(run.stage || "");
+      return `<h1>Run <span class="mono">${esc(id)}</span> ${helpBtn("run-detail", "Run detail")}</h1>
+        <p>${st(run.status)} · ${esc(run.map)}</p>
+        <ol class="progress">${stages.filter((x) => run.upload || x !== "unpack").map((x) => `<li${stages.indexOf(x) < at ? ' class="done"' : stages.indexOf(x) === at ? ' class="now" aria-current="step"' : ""}>${esc(x)}</li>`).join("")}</ol>
+        <p class="meta">A migration takes about two minutes, plus up to a minute for the job to start. This page refreshes itself.</p>`;
+    }
     if (run.status !== "succeeded") {
       return `<h1>Run <span class="mono">${esc(id)}</span> ${helpBtn("run-detail", "Run detail")}</h1>
         <p>${st(run.status)} · ${esc(run.map)} · ${esc(run.mode)}</p>${run.error ? `<p class="notice err">${esc(run.error)}</p>` : ""}
@@ -152,7 +182,9 @@
     return `<h1>Run <span class="mono">${esc(id)}</span> ${helpBtn("run-detail", "Run detail")}</h1>
       <p class="meta">${esc(run.map)} · ${esc(run.mode)} · ${esc(run.duration_s)} s · started by ${esc(run.triggered_by || "")} ·
         ${Object.entries(run.versions || {}).map(([k, v]) => `${esc(k)} ${esc(v)}`).join(" · ")}</p>
-      <p>Gate ${st(report.gate)} · <a href="${esc(API)}/api/runs/${esc(id)}/files/report/report.html" target="_blank" rel="noopener">Report</a></p>
+      <p>Gate ${st(report.gate)} · <a href="${esc(API)}/api/runs/${esc(id)}/files/report/report.html" target="_blank" rel="noopener">Report</a>
+        · <a class="btn btn-fill" href="${esc(API)}/api/runs/${esc(id)}/files/result.zip" download="manifest-${esc(id)}.zip">Download docs as code (.zip)</a></p>
+      <p class="meta">${esc(report.summary.passed)} of ${esc(report.summary.topics)} topics passed every check; ${esc(report.summary.failed)} failed and ${esc(report.summary.review)} need a writer. Every difference is listed below and in the report.</p>
       <div class="filters" role="group" aria-label="Filter topics by status">${filters}</div>
       <div class="table-wrap"><table><caption>Each check compares DITA-OT HTML5 of the source with Sphinx of the migrated MyST, in every build (${esc(report.summary.builds.join(", "))}). Select a topic for its detail.</caption>
       <thead><tr><th scope="col">Topic</th><th scope="col">Status</th><th scope="col">Counts</th><th scope="col">Text</th><th scope="col">IDs</th><th scope="col">Links</th><th scope="col">Note</th></tr></thead><tbody>${rows}</tbody></table></div>
@@ -164,7 +196,7 @@
     if (!t) return "";
     const md = topic.replace(/\.dita$/, ".md");
     const [src, myst, ledger, agent] = await Promise.all([
-      fetch(`${CFG.site}${mapDir(run.map)}/${topic}`).then((r) => (r.ok ? r.text() : "(source not published with the console)")).catch(() => ""),
+      (run.source_prefix ? file(run.id, `${run.source_prefix}/${topic}`) : fetch(`${CFG.site}source/${mapDir(run.map)}/${topic}`).then((r) => (r.ok ? r.text() : "(source not available)"))).catch(() => "(source not available)"),
       file(run.id, `myst/${md}`).catch(() => "(no MyST page)"),
       file(run.id, "ledger.json").catch(() => []),
       file(run.id, "agent/run.json").catch(() => null),
@@ -240,17 +272,17 @@
 
   // ------------------------------------------------------------ routing and events
   async function route() {
-    const [path, query = ""] = (location.hash.slice(1) || "/overview").split("?");
+    const [path, query = ""] = (location.hash.slice(1) || "/migrate").split("?");
     const parts = path.split("/").filter(Boolean);
     const params = new URLSearchParams(query);
     const main = $("#main");
-    const section = parts[0] === "runs" ? "maps" : parts[0] || "overview";
+    const section = parts[0] === "runs" ? "maps" : parts[0] || "migrate";
     document.querySelectorAll("nav.main a").forEach((a) => {
       if (a.getAttribute("href") === `#/${section}`) a.setAttribute("aria-current", "page"); else a.removeAttribute("aria-current");
     });
     try {
       main.innerHTML = `<p class="meta">Loading…</p>`;
-      const html = parts[0] === "runs" ? await screens.run(decodeURIComponent(parts[1] || ""), params) : await (screens[parts[0]] || screens.overview)();
+      const html = parts[0] === "runs" ? await screens.run(decodeURIComponent(parts[1] || ""), params) : await (screens[parts[0]] || screens.migrate)();
       main.innerHTML = html + `<p class="sig">— checked, not assumed</p>`;
       main.dataset.helpId = helpId;
       document.title = `${main.querySelector("h1")?.textContent.replace("?", "").trim() || "MANIFEST"} · MANIFEST console`;
@@ -281,6 +313,21 @@
         await api(`/api/rules/${encodeURIComponent(el.dataset.reject)}/reject`, { method: "POST", body: JSON.stringify({ reason }) }); route();
       }
     } catch (e) { if (msg) msg.innerHTML = `<p class="notice err">${esc(e.message)}</p>`; }
+  });
+  document.addEventListener("submit", async (ev) => {
+    if (ev.target.id !== "upload-form") return;
+    ev.preventDefault();
+    const f = $("#zip").files[0];
+    const msg = $("#msg"), btn = $("#upload-btn");
+    if (!f) return;
+    btn.disabled = true; msg.innerHTML = `<p class="notice">Uploading ${esc(f.name)}…</p>`;
+    try {
+      const q = new URLSearchParams({ map: $("#rootmap").value.trim(), name: f.name });
+      const r = await fetch(`${API}/api/uploads?${q}`, { method: "POST", headers: { "Content-Type": "application/zip" }, body: f });
+      const data = await r.json();
+      if (!r.ok) throw new Error(data.detail || r.statusText);
+      location.hash = `#/runs/${data.id}`;
+    } catch (e) { msg.innerHTML = `<p class="notice err">${esc(e.message)}</p>`; btn.disabled = false; }
   });
   document.addEventListener("keydown", (ev) => {
     if (ev.key === "Enter" && ev.target.dataset?.topic) ev.target.click();

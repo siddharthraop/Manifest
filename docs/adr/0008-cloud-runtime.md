@@ -46,7 +46,7 @@ together may use at most about 20% of each free-tier limit; no keys in code; eve
 5. **Storage.** Firestore `(default)` holds `runs`, `rules`, `reviews` and `audit`. Each write is
    committed with its audit record in one batch, so neither exists without the other. Cloud Storage
    holds only what the console needs from a run: report, agent record, MyST pages, reuse ledger,
-   inventory. That is under 5 MB a run (a test enforces it) against the 5 GB-month free storage.
+   inventory. That is about 5 MB a run with the download (a test holds it under 8 MB) against the 5 GB-month free storage.
    The built sites stay out. The bucket has public access prevention on, so the API serves report
    files itself, HTML with a CSP that allows no scripts.
 6. **Who may do what.** Anyone may read maps, runs, reports, rules and reviews (public sample

@@ -98,7 +98,8 @@ def test_the_run_stores_what_the_console_needs(
         assert (run / f).is_file(), f
     assert not list(run.rglob("_build")), "built sites stay out of storage"
     size = sum(p.stat().st_size for p in run.rglob("*") if p.is_file())
-    assert size < 5_000_000, f"a run stores {size} bytes; Cloud Storage's free 5 GB is shared by six products"
+    # The download (result.zip) repeats the MyST and report, so a run is about 5 MB; 8 MB keeps 600+ runs in 5 GB.
+    assert size < 8_000_000, f"a run stores {size} bytes; Cloud Storage's free 5 GB is shared by six products"
 
 
 @needs_toolchain

@@ -10,7 +10,7 @@ MANIFEST is the first of six tech-writing builds that share one Google Cloud
 project and one billing account with about 30 other projects. The Free Tier is
 calculated per billing account, so the six builds may use at most about 20% of
 each limit ([Free Tier](https://docs.cloud.google.com/free/docs/free-cloud-features)).
-Claude never handles Google Cloud credentials, and no project ID goes in code.
+Google Cloud credentials stay with the project owner and GitHub Actions' keyless identity, and no project ID goes in code.
 
 ## Decisions
 

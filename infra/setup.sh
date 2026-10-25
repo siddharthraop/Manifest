@@ -4,7 +4,7 @@
 # =============================================================================
 #
 # WHO RUNS THIS: Siddharth, once, on his Mac, signed in with `gcloud auth login`
-# as the project owner. Claude never handles GCP credentials (ADR 0001).
+# as the project owner. Credentials stay with the project owner (ADR 0001).
 #
 # WHAT IT CREATES (all idempotent: re-running skips what already exists)
 #   1. Required APIs

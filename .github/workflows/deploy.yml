@@ -18,7 +18,8 @@ permissions:
   id-token: write   # the OIDC token for Workload Identity Federation
 
 env:
-  IMAGE_REPO: ${{ vars.GCP_REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT }}/${{ vars.GCP_AR_REPO }}/manifest
+  # GCP_AR_REPO is already the full path (REGION-docker.pkg.dev/PROJECT/tw-images; infra/setup.sh).
+  IMAGE_REPO: ${{ vars.GCP_AR_REPO }}/manifest
 
 jobs:
   deploy:

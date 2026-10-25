@@ -29,8 +29,9 @@ together may use at most about 20% of each free-tier limit; no keys in code; eve
      Before the Babel cut this was 48 MB compressed.
    - DITA-OT and lychee are downloaded from their GitHub releases and checked against SHA-256.
 
-   That is still about 1.7 times the share (the CI `image` job prints the measured size). We
-   accept it: the overage is at most 0.07 GiB × $0.10 = under $0.01 a month, and it is billed only
+   The result measured in CI is 171 MB compressed (210 MB before DITA-OT's owner was set at copy
+   time instead of by a `chown -R` layer that stored it twice). That is still about 1.7 times the
+   share. We accept it: the overage is at most 0.07 GiB × $0.10 = under $0.01 a month, and it is billed only
    if the whole billing account goes over 0.5 GiB. CI fails above 200 MB, so the image can't creep,
    and the repository keeps only the latest version.
 3. **Job shape: 1 task, no retries, 2 vCPU / 4 GiB, 30-minute limit.** Cloud Run's filesystem is

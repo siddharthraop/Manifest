@@ -1,0 +1,55 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "manifest-dita"
+version = "0.1.0"
+description = "Migrate a DITA map to MyST Markdown and prove that every topic is complete."
+readme = "README.md"
+license = { text = "MIT" }
+authors = [{ name = "Siddharth Rao" }]
+requires-python = ">=3.11"
+dependencies = ["lxml>=5.3", "markdown-it-py>=3"]
+
+[project.optional-dependencies]
+sphinx = ["sphinx>=8", "myst-parser>=4", "sphinx-substitution-extensions>=2026.10"]
+agent = ["google-adk>=2.13,<3", "google-genai>=2.33"]
+cloud = [
+  "fastapi>=0.160",
+  "uvicorn>=0.50",
+  "google-cloud-firestore>=2.30",
+  "google-cloud-storage>=3.0",
+  "google-cloud-run>=0.16",
+  "google-auth>=2.40",
+  "requests>=2.32",
+]
+dev = ["pytest>=8", "mypy>=1.10", "ruff>=0.6", "lxml-stubs>=0.5", "httpx2>=2.16"]
+
+[project.scripts]
+manifest = "manifest.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["manifest*", "api*"]
+
+[tool.setuptools.package-data]
+manifest = ["assets/fonts/*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.mypy]
+strict = true
+files = ["manifest", "api"]
+
+[tool.ruff]
+line-length = 110
+target-version = "py311"
+extend-exclude = ["corpus", ".venv", "build"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["E501"]
+"manifest/report.py" = ["E501"]  # the HTML and CSS templates read better unwrapped

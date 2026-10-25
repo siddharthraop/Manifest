@@ -1,0 +1,195 @@
+"""Read DITA safely: parse without DTDs, walk a map, resolve keys and references.
+
+Every function here is deterministic and offline. Grammar validation is the corpus's job
+(xmllint against the OASIS DTDs); MANIFEST only needs the tree.
+"""
+
+from __future__ import annotations
+
+from collections.abc import Iterator
+from dataclasses import dataclass, field
+from pathlib import Path
+from typing import Any
+
+from lxml import etree
+
+# No DTD, no network, no entity expansion: safe on untrusted input, and fast.
+PARSER = etree.XMLParser(load_dtd=False, no_network=True, resolve_entities=False, remove_comments=True)
+
+# Attributes DITA uses for conditional processing (DITA 1.3 profiling attributes).
+PROFILE_ATTRS = ("platform", "audience", "product", "otherprops", "props", "deliveryTarget")
+
+# Elements whose content is metadata, not rendered text. Counted separately.
+METADATA_ROOTS = ("prolog", "topicmeta")
+
+
+def parse(path: Path) -> etree._ElementTree:
+    return etree.parse(str(path), PARSER)
+
+
+def split_href(href: str) -> tuple[str, str | None, str | None]:
+    """'file.dita#topicid/elemid' -> ('file.dita', 'topicid', 'elemid')."""
+    file_part, _, frag = href.partition("#")
+    if not frag:
+        return file_part, None, None
+    topic_id, _, elem_id = frag.partition("/")
+    return file_part, topic_id or None, elem_id or None
+
+
+def is_local(href: str) -> bool:
+    return bool(href) and "://" not in href and not href.startswith("mailto:")
+
+
+@dataclass(frozen=True)
+class TopicEntry:
+    """One topic as the map places it."""
+
+    path: Path
+    order: int
+    processing_role: str  # "normal" or "resource-only"
+    conditions: dict[str, tuple[str, ...]] = field(default_factory=dict)  # cascaded from the map
+    parent: Path | None = None  # the topic this one sits under in the map, if any
+    collection: str | None = None  # @collection-type on its topicref ("family": children link to each other)
+
+
+@dataclass
+class MapModel:
+    path: Path
+    topics: list[TopicEntry]
+    keys: dict[str, str]  # key name -> text value
+    reltable_rows: int
+    # Topics a relationship table references, with the conditions on that reference. DITA-OT
+    # publishes a topic if any visible reference reaches it, even one filtered out of the TOC.
+    reltable_refs: list[tuple[Path, dict[str, tuple[str, ...]]]] = field(default_factory=list)
+    # Pairs of topics a relationship table relates (topics in different cells of one row).
+    reltable_pairs: set[frozenset[Path]] = field(default_factory=set)
+
+
+def _conditions(el: etree._Element, inherited: dict[str, tuple[str, ...]]) -> dict[str, tuple[str, ...]]:
+    out = dict(inherited)
+    for a in PROFILE_ATTRS:
+        v = el.get(a)
+        if v:
+            out[a] = tuple(v.split())
+    return out
+
+
+def _keydefs(tree: etree._ElementTree) -> dict[str, str]:
+    out: dict[str, str] = {}
+    for kd in tree.iter("keydef"):
+        text = " ".join("".join(str(t) for t in kd.itertext()).split())
+        for k in (kd.get("keys") or "").split():
+            out.setdefault(k, text)  # DITA: the first definition of a key wins
+    return out
+
+
+def load_map(map_path: Path) -> MapModel:
+    """Walk a root map: topics in reading order, keys from every key map, reltable rows."""
+    map_path = map_path.resolve()
+    topics: list[TopicEntry] = []
+    keys: dict[str, str] = {}
+    seen: set[Path] = set()
+    relrefs: list[tuple[Path, dict[str, tuple[str, ...]]]] = []
+    pairs: set[frozenset[Path]] = set()
+    rows = 0
+
+    def walk(
+        el: etree._Element,
+        base: Path,
+        role: str,
+        cond: dict[str, tuple[str, ...]],
+        parent: Path | None = None,
+    ) -> None:
+        nonlocal rows
+        for child in el:
+            if not isinstance(child.tag, str):
+                continue
+            if child.tag == "reltable":
+                rows += sum(1 for _ in child.iter("relrow"))
+                for row in child.iter("relrow"):
+                    cells = [
+                        [
+                            (base / r.get("href", "").split("#")[0]).resolve()
+                            for r in cell.iter("topicref")
+                            if r.get("href", "").split("#")[0].endswith(".dita")
+                        ]
+                        for cell in row.iter("relcell")
+                    ]
+                    for i, a_cell in enumerate(cells):
+                        for b_cell in cells[i + 1 :]:
+                            pairs.update(frozenset((a, b)) for a in a_cell for b in b_cell if a != b)
+                for ref in child.iter("topicref"):
+                    href = ref.get("href")
+                    if href and is_local(href) and href.split("#")[0].endswith(".dita"):
+                        rcond = cond
+                        for anc in reversed([ref, *ref.iterancestors()]):
+                            if anc is child:
+                                continue
+                            rcond = (
+                                _conditions(anc, rcond)
+                                if anc.tag in ("relrow", "relcell", "topicref")
+                                else rcond
+                            )
+                        relrefs.append(((base / href.split("#")[0]).resolve(), rcond))
+                continue
+            href = child.get("href")
+            child_role = child.get("processing-role") or role
+            child_cond = _conditions(child, cond)
+            if child.tag == "mapref" and href and is_local(href):
+                sub = (base / href).resolve()
+                sub_tree = parse(sub)
+                keys.update({k: v for k, v in _keydefs(sub_tree).items() if k not in keys})
+                if child.get("type") != "subjectScheme":
+                    walk(sub_tree.getroot(), sub.parent, child_role, child_cond, parent)
+                continue
+            if child.tag == "topicref" and href and is_local(href) and href.split("#")[0].endswith(".dita"):
+                p = (base / href.split("#")[0]).resolve()
+                if p not in seen:
+                    seen.add(p)
+                    topics.append(
+                        TopicEntry(
+                            p, len(topics), child_role, child_cond, parent, child.get("collection-type")
+                        )
+                    )
+                walk(child, base, child_role, child_cond, p)
+                continue
+            walk(child, base, child_role, child_cond, parent)
+
+    root_tree = parse(map_path)
+    keys.update(_keydefs(root_tree))
+    walk(root_tree.getroot(), map_path.parent, "normal", {})
+    return MapModel(map_path, topics, keys, rows, relrefs, pairs)
+
+
+def iter_body(root: etree._Element) -> Iterator[etree._Element]:
+    """Every element outside prolog/topicmeta, in document order."""
+    skip: set[etree._Element] = set()
+    for el in root.iter():
+        if not isinstance(el.tag, str):
+            continue
+        if el.tag in METADATA_ROOTS:
+            skip.update(el.iter())
+        if el in skip:
+            continue
+        yield el
+
+
+def find_by_id(
+    path: Path, topic_id: str | None, elem_id: str | None, rules: Any = None
+) -> etree._Element | None:
+    """Resolve the fragment of a DITA href inside a topic file (after `rules`, a RuleSet, if given)."""
+    if not path.exists():
+        return None
+    tree = parse(path)
+    root = (rules.apply(tree) if rules is not None else tree).getroot()
+    if topic_id and root.get("id") != topic_id:
+        nested = [t for t in root.iter() if isinstance(t.tag, str) and t.get("id") == topic_id]
+        if not nested:
+            return None
+        root = nested[0]
+    if not elem_id:
+        return root
+    for el in root.iter():
+        if isinstance(el.tag, str) and el.get("id") == elem_id:
+            return el
+    return None

@@ -28,7 +28,7 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
-from manifest.agent import DEFAULT_MODEL
+from manifest.agent import DEFAULT_MODEL, check_api_key, redact
 from manifest.pipeline import migrate
 from manifest.rules import Rule, RuleSet, load_rules, save_rule
 from manifest.store import Blobs, NotFound, Store, now
@@ -121,6 +121,8 @@ def run_job(
         if mode not in MODES and not (mode == "scripted" and script is not None):
             raise JobError(f"unknown mode {mode!r}: use {', '.join(MODES)}")
         map_path = resolve_map(map_value, corpus)
+        if mode == "live":
+            check_api_key(env)  # before minutes of migration, not after
         rules_dir = work / "rules"
         approved = _approved_rules(store, repo_rules, rules_dir)
         out = work / "out"
@@ -191,7 +193,7 @@ def run_job(
             {
                 "status": "failed",
                 "finished_at": now(),
-                "error": str(exc)[:1000],
+                "error": redact(str(exc), env)[:1000],
                 "duration_s": round(time.monotonic() - started),
             },
             ACTOR,
@@ -211,7 +213,7 @@ def main() -> int:  # pragma: no cover - the container entrypoint, exercised by 
         try:
             r = run_job(FirestoreStore(), GcsBlobs(bucket), os.environ, Path(tmp))
         except Exception as exc:
-            print(f"error: {exc}", file=sys.stderr)
+            print(f"error: {redact(str(exc), os.environ)}", file=sys.stderr)
             return 1
     print(f"run {r['id']}: gate {r['gate']}, {r['summary']}, {r['duration_s']} s, {r['files']} files")
     return 0

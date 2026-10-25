@@ -112,11 +112,8 @@ def make_model(
             raise ModelError("replay needs --recording")
         return ReplayLlm.from_file(recording), None
     if mode == "live":
-        if not (os.environ.get("GOOGLE_API_KEY") or os.environ.get("GEMINI_API_KEY")):
-            raise ModelError(
-                "live mode needs a Gemini API key in GOOGLE_API_KEY or GEMINI_API_KEY, for example:\n"
-                '  GOOGLE_API_KEY="$(gcloud secrets versions access latest --secret=gemini-api-key)" \\\n'
-                "  manifest fix ..."
-            )
+        from manifest.agent import check_api_key
+
+        check_api_key(os.environ)
         return model_id, (Recorder(recording, model_id) if recording else None)
     raise ModelError(f"unknown mode {mode!r}: use live, replay or scripted")

@@ -1,0 +1,22 @@
+name: MANIFEST DITA check
+description: Fail a pull request that breaks a DITA key, conref, link or image, with the file, the line and the fix.
+branding:
+  icon: check-square
+  color: gray-dark
+inputs:
+  map:
+    description: Path to the root .ditamap
+    required: true
+  version:
+    description: MANIFEST version to install (a Git ref of siddharthraop/Manifest)
+    default: main
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-python@v5
+      with:
+        python-version: "3.13"
+    - shell: bash
+      run: pip install --quiet "manifest-dita @ git+https://github.com/siddharthraop/Manifest@${{ inputs.version }}"
+    - shell: bash
+      run: manifest lint "${{ inputs.map }}" --format github

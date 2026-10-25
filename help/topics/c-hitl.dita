@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE concept PUBLIC "-//OASIS//DTD DITA Concept//EN" "concept.dtd">
+<concept id="c-hitl" xml:lang="en-US">
+  <title>The human in the loop</title>
+  <shortdesc>The agent proposes; a writer decides. Nothing the agent writes is used again until a writer approves it.</shortdesc>
+  <prolog><resourceid appname="manifest-console" appid="agent-trace"/></prolog>
+  <conbody>
+    <p>When a topic fails a check, the agent reads the difference, the DITA source and both renderings, and proposes one
+      mapping rule. <keyword keyref="product"/> runs the rule and every check again. The agent gets <keyword keyref="max-fixes"/>
+      attempts. If neither passes, the topic goes to a writer with the source, the output and each attempt.</p>
+    <p>A rule that passes is <i>proposed</i>, not applied: the topic shows as Fixed until a writer approves the rule. The agent
+      trace on the run detail lists each tool call, each attempt and its check results in order.</p>
+    <p>The limits are enforced by code, not by the model's instructions. A third attempt is refused, an unsafe rule counts as a
+      failed attempt, and a rule that breaks another topic fails.</p>
+  </conbody>
+</concept>

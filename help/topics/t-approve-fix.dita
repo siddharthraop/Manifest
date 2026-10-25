@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE task PUBLIC "-//OASIS//DTD DITA Task//EN" "task.dtd">
+<task id="t-approve-fix" xml:lang="en-US">
+  <title>Approve or reject a fix</title>
+  <shortdesc>Approve a proposed rule so every later run uses it without the agent, or reject it with a reason.</shortdesc>
+  <prolog><resourceid appname="manifest-console" appid="rule-decision"/></prolog>
+  <taskbody>
+    <context><p conref="../reuse/warehouse.dita#warehouse/p-checks-decide"/></context>
+    <steps>
+      <step><cmd>Read the rule's description and its XSLT.</cmd><info><p>Check that it keeps every piece of text and every ID.</p></info></step>
+      <step><cmd>Select <uicontrol>Approve</uicontrol>, or select <uicontrol>Reject</uicontrol> and say why.</cmd>
+        <stepresult><p>The decision, who made it and when are added to the rule's provenance and to the audit trail.</p></stepresult></step>
+      <step importance="optional"><cmd>From the command line, approve a rule file instead:</cmd>
+        <info><codeblock>manifest rules approve build/agent/proposed/RULE.json --by "Your Name"</codeblock></info></step>
+    </steps>
+    <result><p>An approved rule runs on every later migration. A rejected rule is kept for the record and never runs.</p></result>
+  </taskbody>
+</task>

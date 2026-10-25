@@ -15,6 +15,7 @@ from manifest.tools.check import CheckError, check_topics
 from manifest.tools.convert import ConvertError, convert_map
 from manifest.tools.inventory import inventory_map
 from manifest.tools.links import LinkError, check_links
+from manifest.tools.lint import lint_map
 from manifest.tools.restore import RestoreError, restore_reuse
 
 
@@ -149,6 +150,18 @@ def _migrate(args: argparse.Namespace) -> int:
     return 0 if r["gate"] == "pass" else 1
 
 
+def _lint(args: argparse.Namespace) -> int:
+    problems = lint_map(Path(args.map))
+    for p in problems:
+        print(p.github() if args.format == "github" else p.text())
+    print(
+        f"{len(problems)} problem(s) in {args.map}"
+        if problems
+        else f"{args.map}: no broken keys, conrefs, links or images"
+    )
+    return 1 if problems else 0
+
+
 def _fix(args: argparse.Namespace) -> int:
     try:  # the agent needs the optional [agent] extra; migrate doesn't
         from manifest.agent.models import ModelError
@@ -221,6 +234,12 @@ def main(argv: list[str] | None = None) -> int:
     mig.add_argument("--lychee", default=None, help="path to lychee")
     mig.add_argument("--rules", default=None, help="folder of mapping rules; only approved rules run")
     mig.set_defaults(func=_migrate)
+    lint = sub.add_parser("lint", help="broken keys, conrefs, links and images, with file and line (US-04)")
+    lint.add_argument("map", help="path to the root .ditamap")
+    lint.add_argument(
+        "--format", choices=["text", "github"], default="text", help="github: pull-request annotations"
+    )
+    lint.set_defaults(func=_lint)
     fix = sub.add_parser("fix", help="migrate; the agent proposes rules for failing topics; migrate again")
     fix.add_argument("map", help="path to the root .ditamap")
     fix.add_argument("--out", default="build", help="output folder")

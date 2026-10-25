@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE reference PUBLIC "-//OASIS//DTD DITA Reference//EN" "reference.dtd">
+<reference id="r-configuration" xml:lang="en-US">
+  <title>Settings and connections</title>
+  <shortdesc>What a deployment is connected to, and the settings that control sign-in, the model and the free-tier budget.</shortdesc>
+  <prolog><resourceid appname="manifest-console" appid="settings"/></prolog>
+  <refbody>
+    <properties>
+      <prophead><proptypehd>Setting</proptypehd><propvaluehd>Where</propvaluehd><propdeschd>Effect</propdeschd></prophead>
+      <property><proptype>MANIFEST_OAUTH_CLIENT_ID</proptype><propvalue>Repository variable</propvalue><propdesc>The Google sign-in client. Without it the deployment is read-only.</propdesc></property>
+      <property><proptype>MANIFEST_ALLOWED_EMAILS</proptype><propvalue>Repository variable</propvalue><propdesc>Comma-separated addresses that may start runs and decide rules.</propdesc></property>
+      <property><proptype>gemini-api-key</proptype><propvalue>Secret Manager</propvalue><propdesc>Used by live runs only, inside the migration job. Never in code or in the API.</propdesc></property>
+      <property><proptype>Model</proptype><propvalue><keyword keyref="model"/></propvalue><propdesc>Set per run with <codeph>MANIFEST_MODEL</codeph>.</propdesc></property>
+      <property><proptype>Free-tier share</proptype><propvalue>20% of each limit</propvalue><propdesc>The migration job may use 48,000 vCPU-seconds a month. The Settings screen shows this month's use.</propdesc></property>
+    </properties>
+  </refbody>
+</reference>

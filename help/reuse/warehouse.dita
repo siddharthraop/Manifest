@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE concept PUBLIC "-//OASIS//DTD DITA Concept//EN" "concept.dtd">
+<concept id="warehouse" xml:lang="en-US">
+  <title>Reusable help content</title>
+  <shortdesc>Paragraphs and notes that several help topics share. Not published on its own.</shortdesc>
+  <conbody>
+    <note id="note-signin" type="note">Starting a run and approving or rejecting a rule need you to sign in with a Google account
+      that the deployment allows. Everyone else can read every run, report and rule.</note>
+    <note id="note-free-tier" type="tip">One run at a time keeps the deployment inside the Google Cloud free tier. A migrate run
+      takes about two minutes; a run with the agent takes about six.</note>
+    <p id="p-checks-decide">The checks decide whether a topic passes. The agent can propose a fix, but it can't change a check
+      result, and a writer approves every rule before it is used again.</p>
+  </conbody>
+</concept>

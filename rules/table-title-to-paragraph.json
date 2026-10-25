@@ -1,0 +1,13 @@
+{
+  "id": "table-title-to-paragraph",
+  "match": "table",
+  "status": "approved",
+  "description": "A table's title, which DITA-OT's Markdown writer drops, becomes a bold paragraph just before the table, keeping its text; in a reference body the two are wrapped in an untitled section, which the content model requires.",
+  "xslt": "<xsl:template match=\"refbody/table[title]\"><section><p><b><xsl:apply-templates select=\"title/node()\"/></b></p><table><xsl:apply-templates select=\"@*|node()[not(self::title)]\"/></table></section></xsl:template>\n<xsl:template match=\"table[title]\"><p><b><xsl:apply-templates select=\"title/node()\"/></b></p><table><xsl:apply-templates select=\"@*|node()[not(self::title)]\"/></table></xsl:template>",
+  "provenance": {
+    "proposed_by": "Siddharth Rao, while migrating the MANIFEST help",
+    "topic": "topics/r-checks.dita",
+    "approved_by": "Siddharth Rao",
+    "approved_at": "2026-10-25T00:00:00Z"
+  }
+}

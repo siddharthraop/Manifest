@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE reference PUBLIC "-//OASIS//DTD DITA Reference//EN" "reference.dtd">
+<reference id="r-cli" xml:lang="en-US">
+  <title>Command line</title>
+  <shortdesc>The <cmdname>manifest</cmdname> command runs every part of <keyword keyref="product"/> on your own computer.</shortdesc>
+  <refbody>
+    <section><title>Install</title>
+      <p>You need Python 3.11 or later, Java 17 or later, <keyword keyref="dita-ot"/> and lychee.</p>
+      <codeblock>pip install -e '.[sphinx,agent]'
+export DITA_HOME=/path/to/dita-ot-4.4 LYCHEE=/path/to/lychee</codeblock>
+    </section>
+    <table frame="all">
+      <title>Commands</title>
+      <tgroup cols="2">
+        <thead><row><entry>Command</entry><entry>What it does</entry></row></thead>
+        <tbody>
+          <row><entry><cmdname>manifest migrate MAP</cmdname></entry><entry>Runs all five tools and writes the report. Exits 0 when every topic passes.</entry></row>
+          <row><entry><cmdname>manifest fix MAP --mode live|replay</cmdname></entry><entry>Migrates, lets the agent propose rules for failing topics, and migrates again.</entry></row>
+          <row><entry><cmdname>manifest lint MAP</cmdname></entry><entry>Finds broken keys, conrefs, links and images in seconds, with file and line.</entry></row>
+          <row><entry><cmdname>manifest rules approve FILE --by NAME</cmdname></entry><entry>Approves a proposed rule.</entry></row>
+          <row><entry><cmdname>manifest inventory</cmdname>, <cmdname>convert</cmdname>, <cmdname>restore</cmdname>, <cmdname>check</cmdname>, <cmdname>links</cmdname></entry><entry>Run one tool at a time.</entry></row>
+        </tbody>
+      </tgroup>
+    </table>
+  </refbody>
+</reference>

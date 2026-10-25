@@ -1,0 +1,62 @@
+name: pages
+
+# Build and publish the site: landing page, design doc, console, DITA help center, and the docs MANIFEST
+# migrated (the TPU sample and MANIFEST's own help). Pages source must be "GitHub Actions".
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+      - id: dita-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/dita-ot-4.4
+          key: dita-ot-4.4
+      - if: steps.dita-cache.outputs.cache-hit != 'true'
+        run: |
+          curl -sSL -o /tmp/dita.zip https://github.com/dita-ot/dita-ot/releases/download/4.4/dita-ot-4.4.zip
+          unzip -q /tmp/dita.zip -d ~
+      - name: lychee 0.24.2
+        run: |
+          curl -sSL -o /tmp/lychee.tgz https://github.com/lycheeverse/lychee/releases/download/lychee-v0.24.2/lychee-x86_64-unknown-linux-gnu.tar.gz
+          mkdir -p ~/lychee && tar xzf /tmp/lychee.tgz -C ~/lychee
+          echo "LYCHEE=$(find ~/lychee -name lychee -type f | head -1)" >> "$GITHUB_ENV"
+      - run: pip install -e '.[sphinx,cloud]'
+      - run: ./site/build.sh _site
+        env:
+          DITA_HOME: /home/runner/dita-ot-4.4
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

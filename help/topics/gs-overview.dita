@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE concept PUBLIC "-//OASIS//DTD DITA Concept//EN" "concept.dtd">
+<concept id="gs-overview" xml:lang="en-US">
+  <title>What <keyword keyref="product"/> does</title>
+  <shortdesc><keyword keyref="product"/> migrates a DITA map to MyST Markdown for Sphinx and proves that every topic arrived
+    complete. The overview shows how the migration program is doing against its targets.</shortdesc>
+  <prolog><resourceid appname="manifest-console" appid="overview"/></prolog>
+  <conbody>
+    <p>Teams moving from DITA to docs as code usually lose content without noticing: a conref that becomes a copy, a
+      condition that disappears, an anchor that no longer exists. <keyword keyref="product"/> converts with
+      <keyword keyref="dita-ot"/>, restores the reuse as MyST includes and substitutions, and then compares the result with
+      DITA-OT's own HTML5 output of the source, topic by topic and build by build.</p>
+    <p conref="../reuse/warehouse.dita#warehouse/p-checks-decide"/>
+    <section id="kpis">
+      <title>The numbers on the overview</title>
+      <dl>
+        <dlentry><dt>Unreported losses</dt><dd>Content lost without appearing in the report. The target is 0.</dd></dlentry>
+        <dlentry><dt>Reuse kept</dt><dd>Conrefs and key references that arrived as includes and substitutions.</dd></dlentry>
+        <dlentry><dt>Topics passed without a writer</dt><dd>Topics with no difference and nothing to review.</dd></dlentry>
+        <dlentry><dt>Fixes approved</dt><dd>Mapping rules a writer has approved. Each one runs on every later map without the agent.</dd></dlentry>
+        <dlentry><dt>Broken links</dt><dd>Broken links, navigation differences and old URLs that no longer resolve. The target is 0.</dd></dlentry>
+        <dlentry><dt>Writer hours saved</dt><dd>A model, not a measurement: topics passed without a writer multiplied by the minutes a manual check takes.</dd></dlentry>
+        <dlentry><dt>Cost per map</dt><dd>Cloud Run seconds and Gemini tokens at list price. Inside the free tier the bill is zero; the calculation is shown.</dd></dlentry>
+      </dl>
+    </section>
+  </conbody>
+</concept>

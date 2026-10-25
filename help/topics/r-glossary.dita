@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE reference PUBLIC "-//OASIS//DTD DITA Reference//EN" "reference.dtd">
+<reference id="r-glossary" xml:lang="en-US">
+  <title>Glossary</title>
+  <shortdesc>Terms used in <keyword keyref="product"/> and its reports.</shortdesc>
+  <refbody>
+    <section>
+      <dl>
+        <dlentry id="gl-build"><dt>Build</dt><dd>One audience's version of the docs: unfiltered, or filtered by one DITAVAL file.</dd></dlentry>
+        <dlentry id="gl-gate"><dt>Gate</dt><dd>The run's verdict. Pass when no topic failed a check and no link is broken.</dd></dlentry>
+        <dlentry id="gl-mapping-rule"><dt>Mapping rule</dt><dd>An approved XSLT template that rewrites one element before conversion.</dd></dlentry>
+        <dlentry id="gl-placeholder"><dt>Placeholder</dt><dd>A numbered token that carries a conref, key, condition or ID through conversion.</dd></dlentry>
+        <dlentry id="gl-review-item"><dt>Review item</dt><dd>A source element with no Markdown form and no rule. It goes to a writer.</dd></dlentry>
+        <dlentry id="gl-substitution"><dt>Substitution</dt><dd>A MyST variable that holds a value defined once, as a DITA key does.</dd></dlentry>
+      </dl>
+    </section>
+  </refbody>
+</reference>

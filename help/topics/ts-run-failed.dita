@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE task PUBLIC "-//OASIS//DTD DITA Task//EN" "task.dtd">
+<task id="ts-run-failed" xml:lang="en-US" outputclass="troubleshooting">
+  <title>A run fails before it finishes</title>
+  <shortdesc>The run shows as failed with an error, and no report.</shortdesc>
+  <taskbody>
+    <context><p><b>Cause:</b> A setting the job can't use, such as an unknown mode, a map outside the corpus, or a missing or malformed Gemini key for a live run. Key values are never shown in errors.</p></context>
+    <steps>
+      <step><cmd>Open the run and read its error.</cmd></step>
+      <step><cmd>For a key error, add a new version of the gemini-api-key secret and start the run again.</cmd></step>
+    </steps>
+  </taskbody>
+</task>

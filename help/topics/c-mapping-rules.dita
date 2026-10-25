@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE concept PUBLIC "-//OASIS//DTD DITA Concept//EN" "concept.dtd">
+<concept id="c-mapping-rules" xml:lang="en-US">
+  <title>Mapping rules</title>
+  <shortdesc>A mapping rule rewrites one kind of DITA element into DITA that converts cleanly, before conversion. Rules are
+    small XSLT templates that a writer reviews and approves.</shortdesc>
+  <prolog><resourceid appname="manifest-console" appid="rules"/></prolog>
+  <conbody>
+    <p>Some elements have no Markdown equivalent. A <xmlelement>choicetable</xmlelement>, for example, can become a
+      <xmlelement>simpletable</xmlelement> with the same rows and ID. A rule records what it matches, what it does, who
+      proposed it, which run it came from, and who approved it.</p>
+    <p>Rules run on a working copy, never on your source, and the checks still compare against the untouched source. A rule
+      can only make a topic pass by making the migrated page match the published one.</p>
+    <p>Because a model writes some rules, every rule is limited before it runs: XSLT templates only, no file or network
+      access, no imports and no extension functions.</p>
+    <p conref="../reuse/warehouse.dita#warehouse/p-checks-decide"/>
+  </conbody>
+</concept>

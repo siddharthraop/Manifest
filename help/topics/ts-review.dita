@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE task PUBLIC "-//OASIS//DTD DITA Task//EN" "task.dtd">
+<task id="ts-review" xml:lang="en-US" outputclass="troubleshooting">
+  <title>A topic needs a writer</title>
+  <shortdesc>A topic passed every check but contains an element with no Markdown form and no rule.</shortdesc>
+  <taskbody>
+    <context><p><b>Cause:</b> An element such as an embedded video that the converter drops without a warning.</p></context>
+    <steps>
+      <step><cmd>Open the review item to see the element and its line.</cmd></step>
+      <step><cmd>Decide how the content should appear in Markdown and write a rule, or edit the topic after migration.</cmd></step>
+    </steps>
+  </taskbody>
+</task>

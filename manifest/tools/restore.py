@@ -30,7 +30,7 @@ from markdown_it import MarkdownIt
 from markdown_it.token import Token
 
 from manifest.dita import PROFILE_ATTRS, load_map, parse
-from manifest.placeholders import TOKEN
+from manifest.placeholders import TOKEN, unescape_literal
 from manifest.tools.convert import INCLUDES_DIR
 
 INLINE_CONREF_ELEMENTS = {"ph", "keyword", "term", "codeph", "q", "cite", "varname", "text"}
@@ -819,7 +819,7 @@ def restore_reuse(
             result,
             owner,
         )
-        body = apply_tokens(body, owner, None, by_token, {}, {}, result)
+        body = [unescape_literal(ln) for ln in apply_tokens(body, owner, None, by_token, {}, {}, result)]
         name = include_name(norm)
         if e["element"] in INLINE_CONREF_ELEMENTS:
             text = " ".join(ln.strip() for ln in body if ln.strip())
@@ -920,7 +920,10 @@ def restore_reuse(
         lines = guard_links(lines, md_rel, link_rule(t), builds, by_build, result, rel)
         target_dir = (out_dir / md_rel).parent
         rel_includes = {n: os.path.relpath(p, target_dir) for n, p in include_paths.items()}
-        lines = apply_tokens(lines, rel, topic_id, by_token, rel_includes, inline_names, result)
+        lines = [
+            unescape_literal(ln)
+            for ln in apply_tokens(lines, rel, topic_id, by_token, rel_includes, inline_names, result)
+        ]
         (out_dir / md_rel).parent.mkdir(parents=True, exist_ok=True)
         (out_dir / md_rel).write_text("\n".join(lines).rstrip() + "\n", encoding="utf-8")
 

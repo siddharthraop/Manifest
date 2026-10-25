@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>MANIFEST console</title>
+<meta name="description" content="Run DITA-to-MyST migrations, read their proof, and decide the agent's proposed rules.">
+<link rel="stylesheet" href="app.css">
+<script src="config.js"></script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="top">
+  <a class="brand" href="#/overview">MANIFEST</a>
+  <nav class="main" aria-label="Screens">
+    <a href="#/overview">Overview</a>
+    <a href="#/maps">Maps</a>
+    <a href="#/review">Review queue</a>
+    <a href="#/rules">Rules</a>
+    <a href="#/settings">Settings</a>
+  </nav>
+  <span class="spacer"></span>
+  <span id="who" class="meta" aria-live="polite"></span>
+  <div id="signin" data-help-id="sign-in"></div>
+  <button class="btn" id="theme" type="button" aria-label="Switch light or dark theme">Theme</button>
+  <button class="icon-btn" id="help-btn" type="button" aria-label="Help for this screen (shortcut: ?)" aria-controls="help" aria-expanded="false">?</button>
+</header>
+<main id="main" tabindex="-1"><p class="meta">Loading…</p></main>
+<aside class="help" id="help" aria-label="Help" aria-hidden="true">
+  <div class="panel-head"><h2 id="help-title">Help</h2><button class="icon-btn" id="help-close" type="button" aria-label="Close help">×</button></div>
+  <p id="help-short"></p>
+  <ol id="help-steps"></ol>
+  <div id="help-related" class="links"></div>
+  <p class="links"><a id="help-open" target="_blank" rel="noopener">Open in the help center</a>
+    <a id="help-browse" target="_blank" rel="noopener">Browse the doc set</a></p>
+</aside>
+<script src="app.js"></script>
+</body>
+</html>

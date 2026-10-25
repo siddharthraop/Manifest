@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE concept PUBLIC "-//OASIS//DTD DITA Concept//EN" "concept.dtd">
+<concept id="rn-1-0-0" xml:lang="en-US">
+  <title>Release notes: <keyword keyref="product"/> <keyword keyref="version"/></title>
+  <shortdesc>The first release: migration with proof, the fix agent, the cloud runtime, the console and this help.</shortdesc>
+  <conbody>
+    <ul>
+      <li>Five deterministic tools: inventory, convert, restore, check and links.</li>
+      <li>A fix agent on <keyword keyref="model"/> that proposes mapping rules, with <keyword keyref="max-fixes"/> attempts per topic.</li>
+      <li>A Cloud Run job and API that scale to zero, deployed without keys.</li>
+      <li>A console with context-sensitive help on every screen.</li>
+      <li>A GitHub Action that checks DITA on every pull request.</li>
+      <li>This help, written in DITA and migrated to MyST by <keyword keyref="product"/> itself.</li>
+    </ul>
+  </conbody>
+</concept>

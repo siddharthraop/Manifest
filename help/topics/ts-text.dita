@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE task PUBLIC "-//OASIS//DTD DITA Task//EN" "task.dtd">
+<task id="ts-text" xml:lang="en-US" outputclass="troubleshooting">
+  <title>A topic fails the text check</title>
+  <shortdesc>The migrated page has different words from the published page. The report shows the words on each side.</shortdesc>
+  <taskbody>
+    <context><p><b>Cause:</b> Usually an element that DITA-OT's Markdown writer drops or changes, such as a figure caption, a step label or a generated word.</p></context>
+    <steps>
+      <step><cmd>Open the topic on the run detail and compare the DITA and MyST text the difference names.</cmd></step>
+      <step><cmd>Find the source element that holds the missing words.</cmd></step>
+      <step><cmd>If the element has no Markdown form, approve or write a mapping rule for it.</cmd></step>
+    </steps>
+  </taskbody>
+</task>

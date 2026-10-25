@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE task PUBLIC "-//OASIS//DTD DITA Task//EN" "task.dtd">
+<task id="t-rollback" xml:lang="en-US">
+  <title>Roll back a migration</title>
+  <shortdesc>A migration changes files in a pull request, so you roll it back the way you roll back any change.</shortdesc>
+  <taskbody>
+    <steps>
+      <step><cmd>Revert the migration's pull request in the documentation repository.</cmd></step>
+      <step><cmd>Remove the redirect file the migration added, if it was published.</cmd><info><p>Old URLs then resolve to the
+        DITA-OT site again.</p></info></step>
+      <step importance="optional"><cmd>If an approved rule caused the problem, reject it so the next run doesn't use it.</cmd></step>
+    </steps>
+  </taskbody>
+</task>

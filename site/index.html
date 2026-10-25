@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>MANIFEST: DITA to docs as code, with proof</title>
+<meta name="description" content="MANIFEST migrates DITA maps to MyST Markdown and proves that every topic arrived complete.">
+<style>
+@font-face{font-family:'IBM Plex Sans';src:url(assets/fonts/IBMPlexSans.woff2) format('woff2');font-weight:100 700;font-display:swap}
+@font-face{font-family:'Courier Prime';src:url(assets/fonts/CourierPrime.woff2) format('woff2');font-display:swap}
+@font-face{font-family:'Caveat';src:url(assets/fonts/Caveat.woff2) format('woff2');font-display:swap}
+:root{--paper:#FAF8F3;--paper-deep:#F2EEE4;--ink:#1C1A17;--ink-body:#29251F;--ink-soft:#5C5650;--stamp:#8C3D2E;--stamp-tint:#C9A98F;--rule:#DDD6CB;--band:#1C1A17;--band-fg:#FAF8F3}
+@media (prefers-color-scheme:dark){:root{--paper:#1C1A17;--paper-deep:#24211D;--ink:#FAF8F3;--ink-body:#EDE8DF;--ink-soft:#B8B0A5;--stamp:#B06650;--rule:rgba(250,248,243,.12);--band:#24211D}}
+*{box-sizing:border-box}body{margin:0;background:var(--paper);color:var(--ink-body);font:16px/1.6 'IBM Plex Sans',system-ui,sans-serif}
+main{max-width:980px;margin:0 auto;padding:48px 16px 80px}a{color:var(--ink);text-decoration-color:var(--stamp-tint)}
+a:focus-visible{outline:2px solid var(--stamp);outline-offset:2px}
+.kicker{letter-spacing:.14em;font-size:13px;color:var(--stamp);font-weight:600}
+h1{font-size:clamp(30px,5vw,46px);line-height:1.15;color:var(--ink);margin:8px 0 16px}h2{font-size:20px;color:var(--ink);margin:44px 0 12px;border-top:1px solid var(--rule);padding-top:24px}
+.lead{font-size:19px;max-width:44em}
+.band{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:1px;background:var(--band);color:var(--band-fg);margin:28px 0;border-radius:2px;overflow:hidden}
+.band div{background:var(--band);padding:16px}.band b{display:block;font-size:28px}.band span{font-size:12px;color:var(--stamp-tint)}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:1px;background:var(--rule);border:1px solid var(--rule)}
+.grid a{display:block;background:var(--paper);padding:18px;text-decoration:none}.grid a:hover{background:var(--paper-deep)}
+.grid b{color:var(--ink);display:block;margin-bottom:4px}.grid span{color:var(--ink-soft);font-size:14px}
+ol li{margin:6px 0}code{font-family:'Courier Prime',monospace}
+.proof{border-left:3px solid var(--stamp);padding:8px 16px;background:var(--paper-deep);font-size:18px}
+.sig{font-family:'Caveat',cursive;font-size:24px;color:var(--ink-soft)}
+</style>
+</head>
+<body>
+<main>
+<p class="kicker">MANIFEST · PROJECT 1 OF 6</p>
+<h1>Migrate DITA to docs as code, and prove nothing was lost.</h1>
+<p class="lead">Moving a DITA library to Markdown usually loses content quietly: a conref becomes a copy, a condition disappears,
+an anchor stops existing. Teams find out from customers. MANIFEST converts with DITA-OT, restores the reuse in MyST, and then
+checks every topic against DITA-OT's own output, in every audience's build, before a writer approves the merge.</p>
+<p class="proof">MANIFEST's own help is written in DITA and migrated to MyST by MANIFEST. <a href="migrated/help-report/report.html">Read its report.</a></p>
+
+<!--KPIS--><div class="band" role="list" aria-label="Results on the TPU sample map">
+  <div role="listitem"><b>0</b><span>unreported losses</span></div>
+  <div role="listitem"><b>$0</b><span>a month on Google Cloud's free tier</span></div>
+</div><!--/KPIS-->
+
+<h2>Open it</h2>
+<div class="grid">
+  <a href="app/"><b>Console</b><span>Runs, proof, the review queue and rules. Help on every screen.</span></a>
+  <a href="help/"><b>Help center</b><span>Get started, concepts, tasks, reference and troubleshooting, built from DITA.</span></a>
+  <a href="migrated/tpu/"><b>Migrated docs</b><span>The TPU sample set as MyST, built with Sphinx.</span></a>
+  <a href="migrated/tpu-report/report.html"><b>Migration report</b><span>Every topic, every check, every build.</span></a>
+  <a href="design/"><b>Design document</b><span>Problem, users, architecture, decisions and success metrics.</span></a>
+  <a href="https://github.com/siddharthraop/Manifest"><b>Source</b><span>Engine, agent, API, console, help, tests and ADRs.</span></a>
+</div>
+
+<h2>How it works</h2>
+<ol>
+  <li><b>Inventory</b> counts every element, conref, key, condition, ID and link: the before picture.</li>
+  <li><b>Convert</b> swaps reuse for numbered placeholders and runs DITA-OT's Markdown writer.</li>
+  <li><b>Restore</b> turns placeholders into MyST includes, substitutions, <code>only</code> blocks and anchors.</li>
+  <li><b>Check</b> compares DITA-OT HTML5 with Sphinx for each topic, in each build: text, structure and IDs.</li>
+  <li><b>Links</b> checks links, navigation and every old URL offline.</li>
+</ol>
+<p>When a topic fails, a Gemini agent proposes a mapping rule. The checks decide whether it works; the agent gets two
+attempts; a writer approves every rule before it runs again. Approved rules run without the model, so each new kind of
+element costs one model call, not one per topic.</p>
+
+<h2>Economics</h2>
+<p>Everything scales to zero: a Cloud Run job for migrations, a Cloud Run API, Firestore and Cloud Storage, deployed from
+GitHub without keys. A migration of the sample map takes about two minutes of compute; the whole product fits in a fifth of
+Google Cloud's free tier.</p>
+<p class="sig">— checked, not assumed</p>
+</main>
+</body>
+</html>

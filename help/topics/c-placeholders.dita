@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE concept PUBLIC "-//OASIS//DTD DITA Concept//EN" "concept.dtd">
+<concept id="c-placeholders" xml:lang="en-US">
+  <title>Placeholders</title>
+  <shortdesc>Placeholders carry reuse through a conversion that would otherwise flatten it.</shortdesc>
+  <conbody>
+    <p>DITA-OT resolves conrefs and keys when it converts, so the Markdown it writes contains copies, not references. Before
+      conversion, <keyword keyref="product"/> swaps each reference for a token such as <codeph>@@K12@@</codeph>, and records
+      it in the reuse ledger. A token that goes missing or appears twice fails the convert step, so reuse can't be lost
+      silently.</p>
+  </conbody>
+</concept>

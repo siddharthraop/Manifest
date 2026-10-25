@@ -22,6 +22,20 @@ from lxml import etree
 from manifest.dita import PROFILE_ATTRS
 
 TOKEN = re.compile(r"@@([KCBEI])(\d+)@@")
+# Source text that already contains "@@" (a topic about placeholders, say) is escaped before tokens
+# go in, so it can never be read as a token; restore turns it back. U+2060 is a word joiner.
+LITERAL = "@\u2060@"
+
+
+CELL_PIPE = "\u2064"  # a "|" inside a table cell, written back escaped on Markdown table rows
+
+
+def unescape_literal(text: str) -> str:
+    text = text.replace(LITERAL, "@@")
+    if CELL_PIPE in text:
+        text = text.replace(CELL_PIPE, "\\|" if text.lstrip().startswith("|") else "|")
+    return text
+
 
 # Elements a key reference can be replaced in by plain text (DITA: keyref on a phrase-level
 # element with no content means "show the key's text").
@@ -200,10 +214,53 @@ def _add_step_labels(root: etree._Element) -> None:
             cmd.insert(0, b)
 
 
+def _single_step_informal(root: etree._Element) -> None:
+    """DITA-OT HTML5 renders a task with one step as a paragraph, not a one-item list, but the Markdown
+    writer writes a list. Rewrite such steps as <steps-informal> so both agree (found in the help)."""
+    for steps in list(root.iter("steps")):
+        kids = [k for k in steps if isinstance(k.tag, str)]
+        if len(kids) != 1 or kids[0].tag != "step":
+            continue
+        step, informal = kids[0], etree.Element("steps-informal")
+        for part in step:
+            if not isinstance(part.tag, str):
+                continue
+            if part.tag == "cmd":
+                para = etree.SubElement(informal, "p")
+                para.text, para[:] = part.text, list(part)
+                if step.get("id"):
+                    para.set("id", step.get("id", ""))
+            elif part.tag in ("info", "stepresult", "stepxmp", "tutorialinfo"):
+                if part.text and part.text.strip():
+                    etree.SubElement(informal, "p").text = part.text
+                informal.extend(list(part))
+        informal.tail = steps.tail
+        steps.getparent().replace(steps, informal)  # type: ignore[union-attr]
+
+
+def _escape_table_pipes(root: etree._Element) -> None:
+    """A "|" in a table cell would end the Markdown cell; mark it so restore writes it escaped."""
+    for cell in root.iter("entry", "stentry"):
+        for node in cell.iter():
+            if isinstance(node.tag, str):
+                if node.text and "|" in node.text:
+                    node.text = node.text.replace("|", CELL_PIPE)
+                if node is not cell and node.tail and "|" in node.tail:
+                    node.tail = node.tail.replace("|", CELL_PIPE)
+
+
 def tokenize(root: etree._Element, ledger: Ledger, owner: str) -> None:
     """Replace reuse, conditions and droppable IDs in a parsed topic with tokens, in place."""
+    for node in root.iter():
+        if isinstance(node.tag, str):
+            if node.text and "@@" in node.text:
+                node.text = node.text.replace("@@", LITERAL)
+            if node.tail and "@@" in node.tail:
+                node.tail = node.tail.replace("@@", LITERAL)
     _flatten_preformatted(root)
     _add_step_labels(root)
+    _single_step_informal(root)
+    _escape_table_pipes(root)
     in_metadata: set[etree._Element] = set()
     for el in list(root.iter()):
         if not isinstance(el.tag, str) or el in in_metadata:

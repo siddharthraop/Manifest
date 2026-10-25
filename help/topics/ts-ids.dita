@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE task PUBLIC "-//OASIS//DTD DITA Task//EN" "task.dtd">
+<task id="ts-ids" xml:lang="en-US" outputclass="troubleshooting">
+  <title>A topic fails the IDs check</title>
+  <shortdesc>An ID in the source has no anchor in the migrated page, so old links to it would break.</shortdesc>
+  <taskbody>
+    <context><p><b>Cause:</b> The element carrying the ID was dropped or rewritten without its ID.</p></context>
+    <steps>
+      <step><cmd>Find the element with the named ID in the source.</cmd></step>
+      <step><cmd>Make sure any rule that rewrites the element copies its <codeph>@id</codeph>.</cmd></step>
+    </steps>
+  </taskbody>
+</task>

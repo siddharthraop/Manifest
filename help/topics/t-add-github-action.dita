@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE task PUBLIC "-//OASIS//DTD DITA Task//EN" "task.dtd">
+<task id="t-add-github-action" xml:lang="en-US">
+  <title>Check DITA on every pull request</title>
+  <shortdesc>Add the <keyword keyref="product"/> action to a repository, so a pull request that breaks a key, a conref, a link
+    or an image fails with the file, the line and the fix.</shortdesc>
+  <taskbody>
+    <steps>
+      <step><cmd>Create <filepath>.github/workflows/dita.yml</filepath> in the repository that holds your DITA.</cmd></step>
+      <step><cmd>Add a job that checks out the repository and runs the action on your root map:</cmd>
+        <info><codeblock>on: pull_request
+jobs:
+  dita:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: siddharthraop/Manifest/action@main
+        with:
+          map: docs/product.ditamap</codeblock></info></step>
+      <step><cmd>Open a pull request.</cmd><stepresult><p>Each problem is annotated on the changed file and line, with the fix.</p></stepresult></step>
+    </steps>
+  </taskbody>
+</task>

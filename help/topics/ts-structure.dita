@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE task PUBLIC "-//OASIS//DTD DITA Task//EN" "task.dtd">
+<task id="ts-structure" xml:lang="en-US" outputclass="troubleshooting">
+  <title>A topic fails the structure check</title>
+  <shortdesc>A count of headings, tables, rows, list items, code blocks or images differs between the two pages.</shortdesc>
+  <taskbody>
+    <context><p><b>Cause:</b> An element converted to a different structure, for example a table that became a list.</p></context>
+    <steps>
+      <step><cmd>Read which count differs and by how much.</cmd></step>
+      <step><cmd>Find the element in the source that produces that structure.</cmd></step>
+      <step><cmd>Approve or write a mapping rule that rewrites it into DITA the converter handles.</cmd></step>
+    </steps>
+  </taskbody>
+</task>

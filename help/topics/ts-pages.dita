@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE task PUBLIC "-//OASIS//DTD DITA Task//EN" "task.dtd">
+<task id="ts-pages" xml:lang="en-US" outputclass="troubleshooting">
+  <title>A build publishes different pages</title>
+  <shortdesc>One build publishes a page that the other build doesn't.</shortdesc>
+  <taskbody>
+    <context><p><b>Cause:</b> Conditions on the map, or a relationship table that keeps a filtered topic published.</p></context>
+    <steps>
+      <step><cmd>Compare the topic's conditions on the map and in the relationship table.</cmd></step>
+      <step><cmd>Add the same condition to the relationship-table row if the topic should be excluded.</cmd></step>
+    </steps>
+  </taskbody>
+</task>

@@ -3,38 +3,27 @@
 MANIFEST migrates DITA XML documentation to docs as code. It converts a DITA map to MyST Markdown, checks every topic for
 lost content, and sends anything it can't fix to a technical writer.
 
-**[Read the design document](https://siddharthraop.github.io/Manifest/)**
+**[Open MANIFEST](https://siddharthraop.github.io/Manifest/)** · [design document](https://siddharthraop.github.io/Manifest/design/)
 
 ## Status
 
-**The engine, the fix agent and the cloud runtime are built.**
-`manifest migrate` runs the five deterministic tools and writes a migration
-report. `manifest fix` adds the Gemini agent: for each topic that fails a check
-it proposes a mapping rule, the checks decide whether the rule works, and after
-two failed fixes the topic goes to a writer. On Google Cloud, a Cloud Run job
-runs migrations and a scale-to-zero API serves runs, reports and rules
-([ADR 0008](docs/adr/0008-cloud-runtime.md)). The console and the DITA help set
-are the next build steps.
+**Version 1.0.0.** Engine, fix agent, cloud runtime, console, online help and the pull-request check are built and deployed.
 
-On `corpus/tpu/tpu.ditamap` (24 published topics, 5 builds: unfiltered and one
-per DITAVAL file), with one approved rule:
+| | |
+| --- | --- |
+| Site | https://siddharthraop.github.io/Manifest/ |
+| Console | https://siddharthraop.github.io/Manifest/app/ |
+| Help center (DITA) | https://siddharthraop.github.io/Manifest/help/ |
+| MANIFEST's own help, migrated by MANIFEST | https://siddharthraop.github.io/Manifest/migrated/help/ |
+| Design document | https://siddharthraop.github.io/Manifest/design/ |
+| Developer docs | [docs/dev/](docs/dev/) · [ADRs](docs/adr/) · [CHANGELOG](CHANGELOG.md) |
 
-| Design doc §7 metric | Target | Measured |
-| --- | --- | --- |
-| Unreported losses | 0 | 0 |
-| Topics checked | 100% | 100% (114 comparisons with DITA-OT HTML5) |
-| Reuse kept | 100% of mapped features | 100% (12 conrefs, 168 key references) |
-| IDs kept | 100% | 100% (53 IDs, in DITA-OT's anchor form) |
-| Broken links | 0 | 0 (3,187 links; 114 old URLs) |
-| Topics passed without a writer | Set from the first run | 23 of 24 |
-| Fixes approved | Tracked | 1 approved |
-
-With no rules, one topic fails: a task with a `<choicetable>` and a
-`<hazardstatement>`, which DITA-OT's Markdown writer mangles. That is the
-agent's job ([ADR 0007](docs/adr/0007-the-fix-agent.md)). The one topic for a
-writer has an `<object>` video that DITA-OT's Markdown writer drops without a
-warning. On the way, the checks found four losses that a plain DITA-OT
-conversion ships, and two issues in the source map. See [the ADRs](docs/adr/).
+On `corpus/tpu/tpu.ditamap` (24 published topics, 5 builds): 0 unreported losses, 100% of reuse kept, 22 of 24 topics
+pass without a writer. Of the other two, one has an `<object>` video that DITA-OT drops, so it goes to a writer; the other
+(`tpu-v5e-slice-planning`, with a choice table and a hazard statement) is the agent's job. Gemini proposes a rule, the
+checks test it, and once a writer approves it every §7 metric is met: the test suite proves this path with a scripted
+model ([ADR 0007](docs/adr/0007-the-fix-agent.md)). MANIFEST's own help migrates with the gate passing
+([ADR 0009](docs/adr/0009-console-help-and-site.md)).
 
 ## Quick start
 
@@ -138,29 +127,24 @@ result.
 | Link checks | [lychee](https://github.com/lycheeverse/lychee) |
 | Runtime | Cloud Run and GitHub Actions |
 
-## View the design document locally
-
-The design document is a single HTML file with no build step.
-
-1. Clone the repository:
-
-   ```sh
-   git clone https://github.com/siddharthraop/Manifest.git
-   ```
-
-1. Open `index.html` in a web browser.
-
 ## Repository contents
 
 | Path | Description |
 | --- | --- |
-| `manifest/` | The engine: the five tools, the report and the `manifest` CLI |
-| `tests/` | One test file per user story (`test_us01_report.py` …), per metric and per tool |
+| `manifest/` | The engine: five tools, report, rules, agent, cloud job, store, `manifest` CLI |
+| `api/` | The FastAPI service (Cloud Run) |
+| `console/` | The console: a static app with context-sensitive help |
+| `help/` | The DITA help set, its CSH builder and the OpenAPI-to-DITA generator |
+| `action/` | The GitHub Action for pull requests (US-04) |
+| `rules/` | Approved mapping rules |
+| `recordings/` | Recorded Gemini sessions for replay |
+| `site/` | The landing page and the site build script |
+| `design/` | The design document |
+| `tests/` | One test file per user story, per metric and per tool, plus the help gate |
 | `corpus/` | The [dita-corpus](https://github.com/siddharthraop/dita-corpus) sample, pinned as a submodule |
-| `infra/` | One-time Google Cloud setup (`setup.sh`) |
-| `docs/adr/` | Architecture decision records |
-| `index.html` | The design document, published with GitHub Pages |
-| `.github/workflows/ci.yml` | Lint, types, tests and the end-to-end migration gate |
+| `infra/` | Google Cloud setup and the Cloud Run definitions |
+| `docs/` | Developer docs (`docs/dev/`) and architecture decision records (`docs/adr/`) |
+| `.github/workflows/` | `ci.yml`, `deploy.yml` (WIF → Cloud Run), `pages.yml` (site) |
 
 ## Sample content and attribution
 

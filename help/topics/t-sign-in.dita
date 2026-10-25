@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE task PUBLIC "-//OASIS//DTD DITA Task//EN" "task.dtd">
+<task id="t-sign-in" xml:lang="en-US">
+  <title>Sign in</title>
+  <shortdesc>Sign in with Google to start runs and decide rules. Reading needs no sign-in.</shortdesc>
+  <prolog><resourceid appname="manifest-console" appid="sign-in"/></prolog>
+  <taskbody>
+    <steps>
+      <step><cmd>Select <uicontrol>Sign in</uicontrol> in the console header and choose your Google account.</cmd>
+        <stepresult><p>If your address is on the deployment's allowlist, the write actions become available.</p></stepresult></step>
+    </steps>
+    <postreq><p>If the console says it is read-only, sign-in isn't configured on this deployment. See
+      <xref href="r-configuration.dita"/>.</p></postreq>
+  </taskbody>
+</task>

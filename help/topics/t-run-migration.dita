@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE task PUBLIC "-//OASIS//DTD DITA Task//EN" "task.dtd">
+<task id="t-run-migration" xml:lang="en-US">
+  <title>Run a migration</title>
+  <shortdesc>Start a run for one DITA map from the Maps screen, in one of three modes.</shortdesc>
+  <prolog><resourceid appname="manifest-console" appid="maps"/></prolog>
+  <taskbody>
+    <context><p>Choose a mode:</p>
+      <ul>
+        <li><b>migrate</b>: applies approved rules only. No model is called.</li>
+        <li><b>replay</b>: replays a recorded agent session. The tools and checks run for real; only the model's words are fixed.</li>
+        <li><b>live</b>: the agent calls <keyword keyref="model"/> for each failing topic.</li>
+      </ul>
+      <note conref="../reuse/warehouse.dita#warehouse/note-signin"/>
+    </context>
+    <steps>
+      <step><cmd>Select <uicontrol>Maps</uicontrol>.</cmd></step>
+      <step><cmd>On the map's row, choose a mode.</cmd></step>
+      <step><cmd>Select <uicontrol>Start run</uicontrol>.</cmd><stepresult><p>The run is queued. If another run is queued or
+        running, wait for it to finish.</p></stepresult></step>
+    </steps>
+    <postreq><note conref="../reuse/warehouse.dita#warehouse/note-free-tier"/></postreq>
+  </taskbody>
+</task>

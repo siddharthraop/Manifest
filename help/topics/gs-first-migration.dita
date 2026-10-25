@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE task PUBLIC "-//OASIS//DTD DITA Task//EN" "task.dtd">
+<task id="gs-first-migration" xml:lang="en-US">
+  <title>Run your first migration</title>
+  <shortdesc>Migrate the sample TPU map and read its report. It takes about ten minutes, most of it waiting for the run.</shortdesc>
+  <taskbody>
+    <prereq><p>A Google account that the deployment allows. To run <keyword keyref="product"/> on your own computer instead, see
+      <xref href="r-cli.dita"/>.</p></prereq>
+    <steps>
+      <step><cmd>Open <xref keyref="console"/> and select <uicontrol>Sign in</uicontrol>.</cmd></step>
+      <step><cmd>Select <uicontrol>Maps</uicontrol>.</cmd><info><p>Each DITA map in the corpus is listed with its last run.</p></info></step>
+      <step><cmd>On the <filepath>tpu/tpu.ditamap</filepath> row, choose <uicontrol>migrate</uicontrol> and select
+        <uicontrol>Start run</uicontrol>.</cmd><stepresult><p>The run appears as queued, then running.</p></stepresult></step>
+      <step><cmd>When the run finishes, open it.</cmd><info><p>The run detail lists every topic with its result for each check.</p></info></step>
+    </steps>
+    <result><p>The gate passes when no topic fails a check. A topic that fails is either fixed by a proposed rule or sent to a
+      writer. See <xref href="t-review-failed-topic.dita"/>.</p></result>
+  </taskbody>
+</task>

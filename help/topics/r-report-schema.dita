@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE reference PUBLIC "-//OASIS//DTD DITA Reference//EN" "reference.dtd">
+<reference id="r-report-schema" xml:lang="en-US">
+  <title>Report JSON</title>
+  <shortdesc>Every run writes <filepath>report/report.json</filepath> and an HTML page made from it. These are its top-level fields.</shortdesc>
+  <prolog><resourceid appname="manifest-console" appid="report"/></prolog>
+  <refbody>
+    <properties>
+      <prophead><proptypehd>Field</proptypehd><propvaluehd>Type</propvaluehd><propdeschd>Contents</propdeschd></prophead>
+      <property><proptype>schema_version</proptype><propvalue>string</propvalue><propdesc>The report format version.</propdesc></property>
+      <property><proptype>map</proptype><propvalue>string</propvalue><propdesc>The root map.</propdesc></property>
+      <property><proptype>gate</proptype><propvalue>pass or fail</propvalue><propdesc>Fail if any topic failed a check or a link is broken.</propdesc></property>
+      <property><proptype>summary</proptype><propvalue>object</propvalue><propdesc>Counts of topics passed, fixed, sent for review and failed, and the builds compared.</propdesc></property>
+      <property><proptype>metrics</proptype><propvalue>array</propvalue><propdesc>Each success metric with its target, measured value and how it was measured.</propdesc></property>
+      <property><proptype>topics</proptype><propvalue>array</propvalue><propdesc>Each topic's status, its result for each check, a note and every difference.</propdesc></property>
+      <property><proptype>review_items</proptype><propvalue>array</propvalue><propdesc>Source elements with no rule, each sent to a writer.</propdesc></property>
+      <property><proptype>findings</proptype><propvalue>array</propvalue><propdesc>Issues found in the source that the migration kept as they were.</propdesc></property>
+      <property><proptype>agent</proptype><propvalue>object or null</propvalue><propdesc>For a run with the agent: the model, the topics fixed and the topics sent for review.</propdesc></property>
+    </properties>
+  </refbody>
+</reference>

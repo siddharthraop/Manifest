@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE concept PUBLIC "-//OASIS//DTD DITA Concept//EN" "concept.dtd">
+<concept id="c-reuse-ledger" xml:lang="en-US">
+  <title>The reuse ledger</title>
+  <shortdesc>The reuse ledger records where each conref and key reference went, so you can confirm that a value still
+    changes in one place after the migration.</shortdesc>
+  <prolog><resourceid appname="manifest-console" appid="reuse-ledger"/></prolog>
+  <conbody>
+    <p>Before conversion, <keyword keyref="product"/> replaces each conref, key reference, condition and ID with a numbered
+      placeholder and writes it to the ledger. After conversion it checks that every placeholder survived exactly once, then
+      turns each one into its MyST form:</p>
+    <table frame="all">
+      <title>DITA reuse and its MyST form</title>
+      <tgroup cols="2">
+        <thead><row><entry>DITA</entry><entry>MyST</entry></row></thead>
+        <tbody>
+          <row><entry>Block conref</entry><entry>An <codeph>include</codeph> of a shared file</entry></row>
+          <row><entry>Inline conref</entry><entry>A substitution</entry></row>
+          <row><entry>Key reference</entry><entry>A substitution, also inside code blocks</entry></row>
+          <row><entry>Condition (<codeph>@platform</codeph>, <codeph>@audience</codeph>)</entry><entry>An <codeph>only</codeph> block for each build</entry></row>
+          <row><entry>Element ID</entry><entry>An anchor in DITA-OT's form, <codeph>topicid__elementid</codeph></entry></row>
+        </tbody>
+      </tgroup>
+    </table>
+    <p>The counts on the run detail must match: conrefs in the source against includes and substitutions in the output.</p>
+  </conbody>
+</concept>

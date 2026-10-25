@@ -7,6 +7,15 @@ name: deploy
 on:
   push:
     branches: [main]
+    paths-ignore:   # docs-only changes don't rebuild the runtime
+      - "help/**"
+      - "console/**"
+      - "site/**"
+      - "design/**"
+      - "docs/**"
+      - "action/**"
+      - "**.md"
+      - ".github/workflows/pages.yml"
   workflow_dispatch:
 
 concurrency:

@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE map PUBLIC "-//OASIS//DTD DITA Map//EN" "map.dtd">
+<map id="manifest-help" xml:lang="en-US">
+  <title>MANIFEST Help</title>
+  <topicmeta><shortdesc>How to migrate DITA to docs as code with MANIFEST, and prove nothing was lost.</shortdesc></topicmeta>
+  <mapref href="keys/manifest-keys.ditamap" processing-role="resource-only"/>
+  <topicref href="topics/gs-overview.dita">
+    <topicref href="topics/gs-first-migration.dita"/>
+  </topicref>
+  <topichead navtitle="Concepts">
+    <topicref href="topics/c-fidelity.dita"/>
+    <topicref href="topics/c-reuse-ledger.dita"/>
+    <topicref href="topics/c-placeholders.dita"/>
+    <topicref href="topics/c-mapping-rules.dita"/>
+    <topicref href="topics/c-hitl.dita"/>
+  </topichead>
+  <topichead navtitle="Tasks">
+    <topicref href="topics/t-sign-in.dita"/>
+    <topicref href="topics/t-run-migration.dita"/>
+    <topicref href="topics/t-read-run.dita"/>
+    <topicref href="topics/t-review-failed-topic.dita"/>
+    <topicref href="topics/t-approve-fix.dita"/>
+    <topicref href="topics/t-add-github-action.dita"/>
+    <topicref href="topics/t-rollback.dita"/>
+  </topichead>
+  <topichead navtitle="Reference">
+    <topicref href="topics/r-checks.dita"/>
+    <topicref href="topics/r-report-schema.dita"/>
+    <topicref href="topics/r-cli.dita"/>
+    <topicref href="topics/r-api.dita"/>
+    <topicref href="topics/r-configuration.dita"/>
+    <topicref href="topics/r-glossary.dita"/>
+  </topichead>
+  <topichead navtitle="Troubleshooting">
+    <topicref href="topics/ts-text.dita"/>
+    <topicref href="topics/ts-structure.dita"/>
+    <topicref href="topics/ts-ids.dita"/>
+    <topicref href="topics/ts-links.dita"/>
+    <topicref href="topics/ts-pages.dita"/>
+    <topicref href="topics/ts-review.dita"/>
+    <topicref href="topics/ts-run-failed.dita"/>
+  </topichead>
+  <topichead navtitle="Release notes">
+    <topicref href="topics/rn-1-0-0.dita"/>
+  </topichead>
+  <topicref href="reuse/warehouse.dita" processing-role="resource-only" toc="no"/>
+  <reltable id="help-reltable">
+    <relheader><relcolspec type="concept"/><relcolspec type="task"/><relcolspec type="reference"/></relheader>
+    <relrow><relcell><topicref href="topics/c-fidelity.dita"/></relcell><relcell><topicref href="topics/t-read-run.dita"/></relcell><relcell><topicref href="topics/r-checks.dita"/></relcell></relrow>
+    <relrow><relcell><topicref href="topics/c-reuse-ledger.dita"/><topicref href="topics/c-placeholders.dita"/></relcell><relcell><topicref href="topics/t-read-run.dita"/></relcell><relcell><topicref href="topics/r-report-schema.dita"/></relcell></relrow>
+    <relrow><relcell><topicref href="topics/c-mapping-rules.dita"/><topicref href="topics/c-hitl.dita"/></relcell><relcell><topicref href="topics/t-review-failed-topic.dita"/><topicref href="topics/t-approve-fix.dita"/></relcell><relcell><topicref href="topics/r-cli.dita"/></relcell></relrow>
+    <relrow><relcell><topicref href="topics/gs-overview.dita"/></relcell><relcell><topicref href="topics/t-run-migration.dita"/><topicref href="topics/t-sign-in.dita"/></relcell><relcell><topicref href="topics/r-configuration.dita"/><topicref href="topics/r-api.dita"/></relcell></relrow>
+  </reltable>
+</map>

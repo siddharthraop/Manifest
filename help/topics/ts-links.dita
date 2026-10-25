@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE task PUBLIC "-//OASIS//DTD DITA Task//EN" "task.dtd">
+<task id="ts-links" xml:lang="en-US" outputclass="troubleshooting">
+  <title>A topic fails the links check</title>
+  <shortdesc>A link in the migrated page is broken, its navigation differs, or an old URL no longer resolves.</shortdesc>
+  <taskbody>
+    <context><p><b>Cause:</b> Usually a target that is published in DITA but filtered or renamed in the migration.</p></context>
+    <steps>
+      <step><cmd>Read the link and the build named in the report.</cmd></step>
+      <step><cmd>Check the target is published in that build and that its ID is kept.</cmd></step>
+    </steps>
+  </taskbody>
+</task>

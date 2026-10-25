@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE reference PUBLIC "-//OASIS//DTD DITA Reference//EN" "reference.dtd">
+<reference id="r-checks" xml:lang="en-US">
+  <title>Checks and what fails them</title>
+  <shortdesc>Each check, what it compares, and what makes it fail. Every failure names the build and the text or count that differs.</shortdesc>
+  <prolog><resourceid appname="manifest-console" appid="checks"/></prolog>
+  <refbody>
+    <table frame="all">
+      <title>Checks</title>
+      <tgroup cols="3">
+        <thead><row><entry>Check</entry><entry>Compares</entry><entry>Fails when</entry></row></thead>
+        <tbody>
+          <row><entry>text</entry><entry>The words of each page, in order, from DITA-OT HTML5 and from Sphinx</entry><entry>A word is missing, added or changed. See <xref href="ts-text.dita"/>.</entry></row>
+          <row><entry>structure</entry><entry>Counts of headings, tables, rows, list items, code blocks and images</entry><entry>A count differs. See <xref href="ts-structure.dita"/>.</entry></row>
+          <row><entry>ids</entry><entry>IDs in the source against anchors in the output</entry><entry>An ID has no anchor. See <xref href="ts-ids.dita"/>.</entry></row>
+          <row><entry>links</entry><entry>Links, navigation and old URLs, checked offline with lychee</entry><entry>A link is broken, navigation differs, or an old URL doesn't resolve. See <xref href="ts-links.dita"/>.</entry></row>
+          <row><entry>pages</entry><entry>The set of pages each build publishes</entry><entry>A build publishes a page the other doesn't. See <xref href="ts-pages.dita"/>.</entry></row>
+        </tbody>
+      </tgroup>
+    </table>
+  </refbody>
+</reference>

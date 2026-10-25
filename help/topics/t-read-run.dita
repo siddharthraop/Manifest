@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE task PUBLIC "-//OASIS//DTD DITA Task//EN" "task.dtd">
+<task id="t-read-run" xml:lang="en-US">
+  <title>Read a run</title>
+  <shortdesc>The run detail shows the gate, the success metrics and every topic's result. Open a topic to see the difference,
+    its reuse and the agent's work.</shortdesc>
+  <prolog><resourceid appname="manifest-console" appid="run-detail"/></prolog>
+  <taskbody>
+    <steps>
+      <step><cmd>Open a run from <uicontrol>Overview</uicontrol> or <uicontrol>Maps</uicontrol>.</cmd></step>
+      <step><cmd>Read the gate.</cmd><info><p>Pass means no topic failed a check. Fail lists the topics and the checks they failed.</p></info></step>
+      <step><cmd>Filter the topic table by status to find what needs attention.</cmd></step>
+      <step><cmd>Select a topic.</cmd><info><p>The panel shows the DITA source beside the migrated MyST, the topic's reuse ledger
+        entries, and, for a run with the agent, each attempt and its result.</p></info></step>
+      <step><cmd>Select <uicontrol>Report</uicontrol> to open the full migration report.</cmd></step>
+    </steps>
+  </taskbody>
+</task>

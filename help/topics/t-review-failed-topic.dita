@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE task PUBLIC "-//OASIS//DTD DITA Task//EN" "task.dtd">
+<task id="t-review-failed-topic" xml:lang="en-US">
+  <title>Review a failed topic</title>
+  <shortdesc>The review queue lists topics the agent couldn't fix and rules waiting for a decision. Decide each one.</shortdesc>
+  <prolog><resourceid appname="manifest-console" appid="review-queue"/></prolog>
+  <taskbody>
+    <steps>
+      <step><cmd>Select <uicontrol>Review queue</uicontrol>.</cmd></step>
+      <step><cmd>Open a review.</cmd><info><p>It shows what the checks found, the agent's summary and each attempted rule.</p></info></step>
+      <step><cmd>Decide what to do.</cmd>
+        <choices>
+          <choice>If a proposed rule is right, approve it. See <xref href="t-approve-fix.dita"/>.</choice>
+          <choice>If no rule is right, write one in the repository's <filepath>rules</filepath> folder and approve it there.</choice>
+          <choice>If the difference is acceptable, record why in the review and leave the topic for a writer to edit after migration.</choice>
+        </choices>
+      </step>
+    </steps>
+  </taskbody>
+</task>

@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE concept PUBLIC "-//OASIS//DTD DITA Concept//EN" "concept.dtd">
+<concept id="c-fidelity" xml:lang="en-US">
+  <title>Fidelity: how a topic passes</title>
+  <shortdesc>A topic passes when its migrated page says and shows what its published DITA page says and shows, in every
+    build. Each difference is reported with the check that found it.</shortdesc>
+  <prolog><resourceid appname="manifest-console" appid="diff"/></prolog>
+  <conbody>
+    <p><keyword keyref="product"/> builds the source twice for every audience: once with <keyword keyref="dita-ot"/> HTML5,
+      and once by converting to MyST and building with Sphinx. It then compares the two pages.</p>
+    <ul>
+      <li><b>Text</b>: the same words in the same order.</li>
+      <li><b>Structure</b>: the same number of headings, tables, table rows, list items, code blocks and images.</li>
+      <li><b>IDs</b>: every ID in the source is still an anchor, in the form DITA-OT publishes.</li>
+      <li><b>Links</b>: no broken links, the same navigation, and every old URL still resolves.</li>
+    </ul>
+    <p>The comparison runs once per build: unfiltered, and once for each DITAVAL file. A topic that only one audience sees is
+      only checked in that audience's build.</p>
+  </conbody>
+</concept>

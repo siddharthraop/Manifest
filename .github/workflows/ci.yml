@@ -84,6 +84,12 @@ jobs:
       - run: pip install -e '.[dev,sphinx,agent,cloud]'
       - run: ruff check .
       - run: ruff format --check manifest api tests
+      - name: Help gate (every console help ID resolves; API reference current)
+        run: python help/tools/openapi2dita.py --check
+      - name: Help builds in DITA-OT strict mode
+        run: $DITA_HOME/bin/dita -i help/manifest-help.ditamap -f html5 -o build/help --processing-mode=strict
+      - name: MANIFEST migrates its own help (gate must pass)
+        run: manifest migrate help/manifest-help.ditamap --out build/help-migration --rules rules
       - run: mypy
       - name: pytest (failures are also listed as annotations on the check)
         run: |

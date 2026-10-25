@@ -85,7 +85,14 @@ jobs:
       - run: ruff check .
       - run: ruff format --check manifest api tests
       - run: mypy
-      - run: pytest -q
+      - name: pytest (failures are also listed as annotations on the check)
+        run: |
+          set +e
+          pytest -q -rfE --tb=line -p no:cacheprovider 2>&1 | tee pytest.txt
+          status=${PIPESTATUS[0]}
+          grep -E '^(FAILED|ERROR) ' pytest.txt | cut -c1-900 | sed 's/^/::error title=pytest::/'
+          grep -E '^(/|tests/).*:[0-9]+: ' pytest.txt | head -20 | cut -c1-900 | sed 's/^/::error title=pytest line::/'
+          exit "$status"
       - name: Migrate the TPU map end to end, with the approved rules
         run: |
           # Exit 0: every topic passes. 1: some topics need an approved rule or a writer; the test
